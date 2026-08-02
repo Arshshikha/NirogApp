@@ -1,0 +1,1263 @@
+// =============================================================================
+// NIROG — HealthTech Platform
+// Prisma Schema v2.0
+// =============================================================================
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm, unaccent, uuid_ossp(map: "uuid-ossp")]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearch"]
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  STUDENT
+  PROVIDER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+  UNKNOWN
+}
+
+enum MedicalCategory {
+  ALLOPATHY
+  AYURVEDA
+  HOMEOPATHY
+  UNANI
+  SIDDHA
+  NATUROPATHY
+  DENTISTRY
+  PHYSIOTHERAPY
+  PSYCHOLOGY
+  NUTRITION
+  OTHER
+}
+
+enum ProviderType {
+  HOSPITAL
+  CLINIC
+  LAB
+  PHARMACY
+  DIAGNOSTIC_CENTER
+  BLOOD_BANK
+  REHABILITATION_CENTER
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum AppointmentType {
+  IN_PERSON
+  ONLINE_VIDEO
+  ONLINE_CHAT
+  HOME_VISIT
+  HOSPITAL_VISIT
+  LAB_TEST
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED_BY_PATIENT
+  CANCELLED_BY_PROVIDER
+  NO_SHOW
+  REJECTED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  NET_BANKING
+  WALLET
+  CASH
+  INSURANCE
+}
+
+enum TransactionType {
+  BOOKING_PAYMENT
+  REFUND
+  PLATFORM_FEE
+  PAYOUT
+  SUBSCRIPTION
+  COURSE_PURCHASE
+}
+
+enum TransactionStatus {
+  INITIATED
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+enum ContentType {
+  ARTICLE
+  BLOG
+  CASE_STUDY
+  COURSE
+  WEBINAR
+  PODCAST
+}
+
+enum ContentStatus {
+  DRAFT
+  SUBMITTED
+  PUBLISHED
+  ARCHIVED
+  FLAGGED
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  BOOKING_REMINDER
+  BOOKING_CANCELLATION
+  PAYMENT_SUCCESS
+  PAYMENT_FAILURE
+  VERIFICATION_UPDATE
+  NEW_MESSAGE
+  REVIEW_RECEIVED
+  COURSE_ENROLLED
+  GENERAL
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum MessageSenderType {
+  PATIENT
+  DOCTOR
+  SYSTEM
+}
+
+enum FileCategory {
+  AVATAR
+  LICENSE_DOCUMENT
+  STUDENT_ID
+  PERMIT_DOCUMENT
+  PRESCRIPTION
+  LAB_REPORT
+  MEDICAL_RECORD
+  CHAT_ATTACHMENT
+  COURSE_MATERIAL
+  THUMBNAIL
+}
+
+enum MimeType {
+  IMAGE_JPEG
+  IMAGE_PNG
+  IMAGE_WEBP
+  APPLICATION_PDF
+  VIDEO_MP4
+  VIDEO_WEBM
+  AUDIO_MP3
+  AUDIO_WAV
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAUSED
+  TRIAL
+}
+
+enum ReportReason {
+  SPAM
+  MISINFORMATION
+  INAPPROPRIATE_CONTENT
+  FAKE_PROFILE
+  FRAUD
+  OTHER
+}
+
+// =============================================================================
+// CORE — USER & AUTH
+// =============================================================================
+
+/// Central identity record. One per human being, regardless of role.
+model User {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String             @unique @db.VarChar(255)
+  passwordHash    String             @db.Text
+  role            UserRole
+  isActive        Boolean            @default(true)
+  isEmailVerified Boolean            @default(false)
+  isPhoneVerified Boolean            @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?          // soft-delete
+
+  // Core identity
+  profile         UserProfile?
+
+  // Role-specific profiles (at most one will be populated)
+  patientProfile  PatientProfile?
+  doctorProfile   DoctorProfile?
+  studentProfile  StudentProfile?
+  providerProfile ProviderProfile?
+  adminProfile    AdminProfile?
+
+  // Auth
+  sessions        Session[]
+  oauthAccounts   OAuthAccount[]
+  otpCodes        OtpCode[]
+  passwordResets  PasswordReset[]
+
+  // Interactions
+  bookingsAsPatient Booking[]          @relation("BookingPatient")
+  notifications     Notification[]
+  conversations     ConversationMember[]
+  deviceTokens      DeviceToken[]
+  auditLogs         AuditLog[]         @relation("AuditActor")
+  reports           Report[]           @relation("ReportedBy")
+  reportedAsSubject Report[]           @relation("ReportedSubject")
+  subscription      Subscription?
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+/// Shared personal details. Separated from auth so it can be fetched independently.
+model UserProfile {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String      @unique @db.Uuid
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String      @db.VarChar(100)
+  lastName     String      @db.VarChar(100)
+  displayName  String?     @db.VarChar(150)
+  phone        String?     @db.VarChar(20)
+  dateOfBirth  DateTime?   @db.Date
+  gender       Gender?
+  avatarFileId String?     @db.Uuid
+  avatarFile   MediaFile?  @relation(fields: [avatarFileId], references: [id], onDelete: SetNull)
+  bio          String?     @db.Text
+  address      Address?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([phone])
+  @@map("user_profiles")
+}
+
+model Address {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userProfileId String      @unique @db.Uuid
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  line1         String      @db.VarChar(255)
+  line2         String?     @db.VarChar(255)
+  city          String      @db.VarChar(100)
+  state         String      @db.VarChar(100)
+  pincode       String      @db.VarChar(20)
+  country       String      @default("India") @db.VarChar(100)
+  latitude      Decimal?    @db.Decimal(9, 6)
+  longitude     Decimal?    @db.Decimal(9, 6)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([city])
+  @@index([pincode])
+  @@map("addresses")
+}
+
+model Session {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique @db.Text
+  ipAddress String?   @db.VarChar(45)
+  userAgent String?   @db.Text
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model OAuthAccount {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String    @db.VarChar(50)  // "google" | "apple"
+  providerUid  String    @db.VarChar(255)
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([provider, providerUid])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model OtpCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String    @db.VarChar(10)
+  purpose   String    @db.VarChar(50) // "email_verify" | "phone_verify" | "login"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+model PasswordReset {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique @db.Text
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@map("password_resets")
+}
+
+model DeviceToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.Text
+  platform  String   @db.VarChar(20) // "android" | "ios" | "web"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// =============================================================================
+// ROLE PROFILES
+// =============================================================================
+
+model PatientProfile {
+  id                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String     @unique @db.Uuid
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodGroup            BloodGroup @default(UNKNOWN)
+  allergies             String[]   @db.Text
+  chronicConditions     String[]   @db.Text
+  emergencyContactName  String?    @db.VarChar(150)
+  emergencyContactPhone String?    @db.VarChar(20)
+  insuranceProvider     String?    @db.VarChar(150)
+  insurancePolicyNumber String?    @db.VarChar(100)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  medicalRecords        MedicalRecord[]
+  reviews               Review[]
+
+  @@map("patient_profiles")
+}
+
+model DoctorProfile {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String             @unique @db.Uuid
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrationNumber   String             @db.VarChar(100)
+  category             MedicalCategory
+  specialties          String[]           @db.VarChar(100)
+  subSpecialties       String[]           @db.VarChar(100)
+  qualifications       String[]           @db.VarChar(200)
+  experience           Int                @default(0) // years
+  consultationFee      Decimal            @default(0) @db.Decimal(10, 2)
+  onlineConsultFee     Decimal            @default(0) @db.Decimal(10, 2)
+  languages            String[]           @db.VarChar(50)
+  hospitalAffiliations String[]           @db.VarChar(255)
+  verificationStatus   VerificationStatus @default(PENDING)
+  isAvailableOnline    Boolean            @default(false)
+  avgRating            Decimal            @default(5.0) @db.Decimal(3, 2)
+  totalReviews         Int                @default(0)
+  totalBookings        Int                @default(0)
+  licenseDocumentId    String?            @db.Uuid
+  licenseDocument      MediaFile?         @relation("DoctorLicense", fields: [licenseDocumentId], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  availabilitySlots    DoctorAvailabilitySlot[]
+  bookings             Booking[]
+  reviews              Review[]
+  content              Content[]
+  payouts              Payout[]
+
+  @@index([category])
+  @@index([verificationStatus])
+  @@index([avgRating])
+  @@index([consultationFee])
+  @@map("doctor_profiles")
+}
+
+model DoctorAvailabilitySlot {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctorProfileId String        @db.Uuid
+  doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek       DayOfWeek
+  startTime       String        @db.VarChar(5)  // "09:00"
+  endTime         String        @db.VarChar(5)  // "17:00"
+  slotDuration    Int           @default(15)    // minutes
+  appointmentType AppointmentType
+  isActive        Boolean       @default(true)
+  effectiveFrom   DateTime      @db.Date
+  effectiveTo     DateTime?     @db.Date
+
+  overrides       DoctorAvailabilityOverride[]
+
+  @@index([doctorProfileId])
+  @@index([dayOfWeek])
+  @@map("doctor_availability_slots")
+}
+
+/// One-off overrides (public holiday, leave, extra hours)
+model DoctorAvailabilityOverride {
+  id         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slotId     String                 @db.Uuid
+  slot       DoctorAvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  date       DateTime               @db.Date
+  isBlocked  Boolean                @default(false)
+  startTime  String?                @db.VarChar(5)
+  endTime    String?                @db.VarChar(5)
+  reason     String?                @db.VarChar(255)
+
+  @@index([slotId])
+  @@index([date])
+  @@map("doctor_availability_overrides")
+}
+
+model StudentProfile {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String             @unique @db.Uuid
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionName    String             @db.VarChar(255)
+  enrollmentNumber   String?            @db.VarChar(100)
+  courseOfStudy      String?            @db.VarChar(150)
+  yearOfStudy        Int?
+  graduationYear     Int?
+  verificationStatus VerificationStatus @default(PENDING)
+  studentIdFileId    String?            @db.Uuid
+  studentIdFile      MediaFile?         @relation("StudentId", fields: [studentIdFileId], references: [id], onDelete: SetNull)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  courseEnrollments  CourseEnrollment[]
+  contentInteractions ContentInteraction[]
+
+  @@index([institutionName])
+  @@index([verificationStatus])
+  @@map("student_profiles")
+}
+
+model ProviderProfile {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String             @unique @db.Uuid
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerType       ProviderType
+  legalName          String             @db.VarChar(255)
+  registrationNumber String?            @db.VarChar(100)
+  description        String?            @db.Text
+  website            String?            @db.VarChar(255)
+  operatingHours     Json?              // { mon: { open: "09:00", close: "18:00" }, ... }
+  verificationStatus VerificationStatus @default(PENDING)
+  avgRating          Decimal            @default(5.0) @db.Decimal(3, 2)
+  totalReviews       Int                @default(0)
+  permitFileId       String?            @db.Uuid
+  permitFile         MediaFile?         @relation("ProviderPermit", fields: [permitFileId], references: [id], onDelete: SetNull)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  address            ProviderAddress?
+  services           ProviderService[]
+  bookings           Booking[]
+  reviews            Review[]
+  payouts            Payout[]
+
+  @@index([providerType])
+  @@index([verificationStatus])
+  @@index([avgRating])
+  @@map("provider_profiles")
+}
+
+model ProviderAddress {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerProfileId String          @unique @db.Uuid
+  providerProfile   ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  line1             String          @db.VarChar(255)
+  line2             String?         @db.VarChar(255)
+  city              String          @db.VarChar(100)
+  state             String          @db.VarChar(100)
+  pincode           String          @db.VarChar(20)
+  country           String          @default("India") @db.VarChar(100)
+  latitude          Decimal?        @db.Decimal(9, 6)
+  longitude         Decimal?        @db.Decimal(9, 6)
+
+  @@index([city])
+  @@index([pincode])
+  @@map("provider_addresses")
+}
+
+model ProviderService {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerProfileId String          @db.Uuid
+  providerProfile   ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  name              String          @db.VarChar(255)
+  description       String?         @db.Text
+  price             Decimal?        @db.Decimal(10, 2)
+  durationMinutes   Int?
+  availableSlot     String?         @db.VarChar(100)
+  isActive          Boolean         @default(true)
+  category          String?         @db.VarChar(100)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  bookings          Booking[]
+
+  @@index([providerProfileId])
+  @@index([name])
+  @@index([isActive])
+  @@map("provider_services")
+}
+
+model AdminProfile {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String            @unique @db.Uuid
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   String?           @db.VarChar(100)
+  permissions  String[]          @db.VarChar(100)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  verifications VerificationLog[]
+
+  @@map("admin_profiles")
+}
+
+// =============================================================================
+// BOOKINGS & APPOINTMENTS
+// =============================================================================
+
+model Booking {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingReference   String           @unique @db.VarChar(20) // "NRG-20240601-XXXX"
+  patientId          String           @db.Uuid
+  patient            User             @relation("BookingPatient", fields: [patientId], references: [id], onDelete: Restrict)
+  doctorProfileId    String?          @db.Uuid
+  doctorProfile      DoctorProfile?   @relation(fields: [doctorProfileId], references: [id], onDelete: SetNull)
+  providerProfileId  String?          @db.Uuid
+  providerProfile    ProviderProfile? @relation(fields: [providerProfileId], references: [id], onDelete: SetNull)
+  serviceId          String?          @db.Uuid
+  service            ProviderService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  appointmentType    AppointmentType
+  medicalWing        String?          @db.VarChar(100)
+  scheduledDate      DateTime         @db.Date
+  scheduledTime      String           @db.VarChar(5)   // "14:30"
+  durationMinutes    Int              @default(15)
+  status             BookingStatus    @default(PENDING)
+  paymentStatus      PaymentStatus    @default(UNPAID)
+  totalFee           Decimal          @db.Decimal(10, 2)
+  patientNotes       String?          @db.Text
+  providerNotes      String?          @db.Text
+  cancellationReason String?          @db.Text
+  reminderSentAt     DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  payment            Payment?
+  prescription       Prescription?
+  review             Review?
+  conversation       Conversation?
+
+  @@index([patientId])
+  @@index([doctorProfileId])
+  @@index([providerProfileId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([bookingReference])
+  @@map("bookings")
+}
+
+// =============================================================================
+// PAYMENTS & FINANCIALS
+// =============================================================================
+
+model Payment {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId        String          @unique @db.Uuid
+  booking          Booking         @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  amount           Decimal         @db.Decimal(10, 2)
+  currency         String          @default("INR") @db.VarChar(3)
+  method           PaymentMethod?
+  status           PaymentStatus   @default(PENDING)
+  gatewayName      String?         @db.VarChar(50)  // "razorpay" | "stripe"
+  gatewayOrderId   String?         @db.VarChar(255)
+  gatewayPaymentId String?         @db.VarChar(255)
+  gatewaySignature String?         @db.Text
+  failureReason    String?         @db.Text
+  paidAt           DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  transactions     Transaction[]
+  refunds          Refund[]
+
+  @@index([status])
+  @@index([gatewayOrderId])
+  @@map("payments")
+}
+
+model Transaction {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId String?           @db.Uuid
+  payment   Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  type      TransactionType
+  status    TransactionStatus
+  amount    Decimal           @db.Decimal(10, 2)
+  currency  String            @default("INR") @db.VarChar(3)
+  metadata  Json?
+  createdAt DateTime          @default(now())
+
+  @@index([paymentId])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
+}
+
+model Refund {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId       String        @db.Uuid
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  amount          Decimal       @db.Decimal(10, 2)
+  reason          String        @db.Text
+  status          PaymentStatus @default(PENDING)
+  gatewayRefundId String?       @db.VarChar(255)
+  processedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+model Payout {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctorProfileId   String?          @db.Uuid
+  doctorProfile     DoctorProfile?   @relation(fields: [doctorProfileId], references: [id], onDelete: SetNull)
+  providerProfileId String?          @db.Uuid
+  providerProfile   ProviderProfile? @relation(fields: [providerProfileId], references: [id], onDelete: SetNull)
+  amount            Decimal          @db.Decimal(10, 2)
+  currency          String           @default("INR") @db.VarChar(3)
+  platformFee       Decimal          @db.Decimal(10, 2)
+  netAmount         Decimal          @db.Decimal(10, 2)
+  status            TransactionStatus
+  bankAccount       String?          @db.VarChar(255)
+  utrNumber         String?          @db.VarChar(100)
+  processedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([doctorProfileId])
+  @@index([providerProfileId])
+  @@index([status])
+  @@map("payouts")
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String             @unique @db.Uuid
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  startedAt            DateTime           @default(now())
+  expiresAt            DateTime?
+  cancelledAt          DateTime?
+  gatewaySubscriptionId String?            @db.VarChar(255)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([plan])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// =============================================================================
+// MEDICAL RECORDS
+// =============================================================================
+
+model MedicalRecord {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientProfileId String         @db.Uuid
+  patientProfile   PatientProfile @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+  title            String         @db.VarChar(255)
+  description      String?        @db.Text
+  recordDate       DateTime       @db.Date
+  tags             String[]       @db.VarChar(100)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  files            MedicalRecordFile[]
+
+  @@index([patientProfileId])
+  @@index([recordDate])
+  @@map("medical_records")
+}
+
+model MedicalRecordFile {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  medicalRecordId String        @db.Uuid
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  fileId          String        @db.Uuid
+  file            MediaFile     @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([medicalRecordId])
+  @@map("medical_record_files")
+}
+
+model Prescription {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String                 @unique @db.Uuid
+  booking      Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  notes        String?                @db.Text
+  diagnosis    String?                @db.Text
+  followUpDate DateTime?              @db.Date
+  issuedAt     DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  medicines    PrescriptionMedicine[]
+  files        PrescriptionFile[]
+
+  @@index([bookingId])
+  @@map("prescriptions")
+}
+
+model PrescriptionMedicine {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  prescriptionId String       @db.Uuid
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  name           String       @db.VarChar(255)
+  dosage         String       @db.VarChar(100)
+  frequency      String       @db.VarChar(100)
+  duration       String       @db.VarChar(100)
+  instructions   String?      @db.VarChar(500)
+
+  @@index([prescriptionId])
+  @@map("prescription_medicines")
+}
+
+model PrescriptionFile {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  prescriptionId String       @db.Uuid
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  fileId         String       @db.Uuid
+  file           MediaFile    @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([prescriptionId])
+  @@map("prescription_files")
+}
+
+// =============================================================================
+// REVIEWS & RATINGS
+// =============================================================================
+
+model Review {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId         String          @unique @db.Uuid
+  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  patientProfileId  String          @db.Uuid
+  patientProfile    PatientProfile  @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+  doctorProfileId   String?         @db.Uuid
+  doctorProfile     DoctorProfile?  @relation(fields: [doctorProfileId], references: [id], onDelete: SetNull)
+  providerProfileId String?         @db.Uuid
+  providerProfile   ProviderProfile? @relation(fields: [providerProfileId], references: [id], onDelete: SetNull)
+  rating            Int             // 1–5
+  comment           String?         @db.Text
+  isAnonymous       Boolean         @default(false)
+  isVerified        Boolean         @default(false)
+  helpfulCount      Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([doctorProfileId])
+  @@index([providerProfileId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// =============================================================================
+// MESSAGING
+// =============================================================================
+
+model Conversation {
+  id        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String?              @unique @db.Uuid
+  booking   Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  members   ConversationMember[]
+  messages  ChatMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model ChatMessage {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String            @db.Uuid
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     MessageSenderType
+  senderId       String?           @db.Uuid
+  body           String?           @db.Text
+  isDeleted      Boolean           @default(false)
+  editedAt       DateTime?
+  createdAt      DateTime          @default(now())
+
+  attachments    ChatMessageAttachment[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model ChatMessageAttachment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String    @db.Uuid
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileId    String    @db.Uuid
+  file      MediaFile @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([messageId])
+  @@map("chat_message_attachments")
+}
+
+// =============================================================================
+// CONTENT / KNOWLEDGE HUB
+// =============================================================================
+
+model Content {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId        String         @db.Uuid  // DoctorProfile.id
+  author          DoctorProfile  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  type            ContentType
+  status          ContentStatus  @default(DRAFT)
+  title           String         @db.VarChar(500)
+  slug            String         @unique @db.VarChar(550)
+  excerpt         String?        @db.Text
+  body            String?        @db.Text  // for articles/blogs
+  thumbnailFileId String?        @db.Uuid
+  thumbnailFile   MediaFile?     @relation("ContentThumbnail", fields: [thumbnailFileId], references: [id], onDelete: SetNull)
+  videoUrl        String?        @db.VarChar(500)
+  isPremium       Boolean        @default(false)
+  likesCount      Int            @default(0)
+  commentsCount   Int            @default(0)
+  viewsCount      Int            @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tags            ContentTag[]
+  course          Course?
+  interactions    ContentInteraction[]
+  comments        ContentComment[]
+
+  @@index([authorId])
+  @@index([type])
+  @@index([status])
+  @@index([isPremium])
+  @@index([publishedAt])
+  @@map("content")
+}
+
+model Tag {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String       @unique @db.VarChar(100)
+  slug      String       @unique @db.VarChar(110)
+  createdAt DateTime     @default(now())
+
+  contentTags ContentTag[]
+
+  @@map("tags")
+}
+
+model ContentTag {
+  contentId String  @db.Uuid
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  tagId     String  @db.Uuid
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contentId, tagId])
+  @@index([tagId])
+  @@map("content_tags")
+}
+
+model ContentInteraction {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contentId        String         @db.Uuid
+  content          Content        @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  studentProfileId String         @db.Uuid
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  isLiked          Boolean        @default(false)
+  isBookmarked     Boolean        @default(false)
+  lastReadAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([contentId, studentProfileId])
+  @@map("content_interactions")
+}
+
+model ContentComment {
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contentId String          @db.Uuid
+  content   Content         @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  authorId  String          @db.Uuid  // User.id
+  body      String          @db.Text
+  parentId  String?         @db.Uuid
+  parent    ContentComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies   ContentComment[] @relation("CommentReplies")
+  isDeleted Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([contentId])
+  @@index([parentId])
+  @@map("content_comments")
+}
+
+// =============================================================================
+// COURSES
+// =============================================================================
+
+model Course {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contentId          String           @unique @db.Uuid
+  content            Content          @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  level              CourseLevel
+  price              Decimal          @default(0) @db.Decimal(10, 2)
+  language           String           @default("Hindi") @db.VarChar(50)
+  totalModules       Int              @default(0)
+  totalLessons       Int              @default(0)
+  estimatedHours     Decimal          @default(0) @db.Decimal(5, 1)
+  certificateOffered Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  modules            CourseModule[]
+  enrollments        CourseEnrollment[]
+
+  @@index([level])
+  @@map("courses")
+}
+
+model CourseModule {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId     String            @db.Uuid
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  moduleNumber Int
+  title        String            @db.VarChar(500)
+  summary      String?           @db.Text
+  durationMins Int               @default(0)
+  isPremium    Boolean           @default(false)
+  isPublished  Boolean           @default(false)
+
+  objectives   CourseObjective[]
+  lessons      CourseLesson[]
+  keyTerms     CourseKeyTerm[]
+  progress     CourseProgress[]
+
+  @@unique([courseId, moduleNumber])
+  @@index([courseId])
+  @@map("course_modules")
+}
+
+model CourseObjective {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseModuleId String       @db.Uuid
+  courseModule   CourseModule @relation(fields: [courseModuleId], references: [id], onDelete: Cascade)
+  sortOrder      Int          @default(0)
+  objective      String       @db.Text
+
+  @@index([courseModuleId])
+  @@map("course_objectives")
+}
+
+model CourseLesson {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseModuleId String       @db.Uuid
+  courseModule   CourseModule @relation(fields: [courseModuleId], references: [id], onDelete: Cascade)
+  lessonNumber   Int
+  title          String       @db.VarChar(500)
+  body           String?      @db.Text
+  videoUrl       String?      @db.VarChar(500)
+  durationMins   Int          @default(0)
+  isPremium      Boolean      @default(false)
+
+  @@unique([courseModuleId, lessonNumber])
+  @@index([courseModuleId])
+  @@map("course_lessons")
+}
+
+model CourseKeyTerm {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseModuleId String       @db.Uuid
+  courseModule   CourseModule @relation(fields: [courseModuleId], references: [id], onDelete: Cascade)
+  term           String       @db.VarChar(255)
+  definition     String       @db.Text
+
+  @@index([courseModuleId])
+  @@map("course_key_terms")
+}
+
+model CourseEnrollment {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId         String           @db.Uuid
+  course           Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentProfileId String           @db.Uuid
+  studentProfile   StudentProfile   @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  enrolledAt       DateTime         @default(now())
+  completedAt      DateTime?
+  certificateUrl   String?          @db.VarChar(500)
+  isPremiumUnlocked Boolean          @default(false)
+  progress         CourseProgress[]
+
+  @@unique([courseId, studentProfileId])
+  @@index([courseId])
+  @@index([studentProfileId])
+  @@map("course_enrollments")
+}
+
+model CourseProgress {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollmentId  String           @db.Uuid
+  enrollment    CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId      String           @db.Uuid
+  module        CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completedAt   DateTime?
+  timeSpentMins Int              @default(0)
+
+  @@unique([enrollmentId, moduleId])
+  @@index([enrollmentId])
+  @@map("course_progress")
+}
+
+// =============================================================================
+// MEDIA FILES
+// =============================================================================
+
+/// Single table for all file uploads, referenced by foreign keys elsewhere.
+model MediaFile {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploaderType String         @db.VarChar(50)  // "user" | "system"
+  uploaderId   String?        @db.Uuid
+  category     FileCategory
+  originalName String         @db.VarChar(500)
+  storagePath  String         @db.Text         // S3 key or storage path
+  publicUrl    String?        @db.Text
+  mimeType     MimeType
+  sizeBytes    BigInt
+  width        Int?
+  height       Int?
+  durationSecs Int?
+  isPublic     Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+
+  // Back-relations
+  userProfileAvatars     UserProfile[]
+  doctorLicenses         DoctorProfile[]        @relation("DoctorLicense")
+  studentIds             StudentProfile[]       @relation("StudentId")
+  providerPermits        ProviderProfile[]      @relation("ProviderPermit")
+  medicalRecordFiles     MedicalRecordFile[]
+  prescriptionFiles      PrescriptionFile[]
+  chatMessageAttachments ChatMessageAttachment[]
+  contentThumbnails      Content[]              @relation("ContentThumbnail")
+
+  @@index([uploaderType, uploaderId])
+  @@index([category])
+  @@map("media_files")
+}
+
+// =============================================================================
+// VERIFICATIONS
+// =============================================================================
+
+model VerificationLog {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectType    String             @db.VarChar(50) // "doctor" | "student" | "provider"
+  subjectId      String             @db.Uuid
+  adminProfileId String             @db.Uuid
+  adminProfile   AdminProfile       @relation(fields: [adminProfileId], references: [id], onDelete: Restrict)
+  previousStatus VerificationStatus
+  newStatus      VerificationStatus
+  notes          String?            @db.Text
+  createdAt      DateTime           @default(now())
+
+  @@index([subjectType, subjectId])
+  @@index([adminProfileId])
+  @@map("verification_logs")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String              @db.Uuid
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  title     String              @db.VarChar(255)
+  body      String              @db.Text
+  metadata  Json?
+  isRead    Boolean             @default(false)
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// REPORTS & MODERATION
+// =============================================================================
+
+model Report {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportedById    String       @db.Uuid
+  reportedBy      User         @relation("ReportedBy", fields: [reportedById], references: [id], onDelete: Cascade)
+  subjectUserId   String?      @db.Uuid
+  subjectUser     User?        @relation("ReportedSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectType     String       @db.VarChar(50)  // "user" | "content" | "review"
+  subjectId       String       @db.Uuid
+  reason          ReportReason
+  description     String?      @db.Text
+  isResolved      Boolean      @default(false)
+  resolvedAt      DateTime?
+  resolvedNotes   String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([reportedById])
+  @@index([subjectUserId])
+  @@index([subjectType, subjectId])
+  @@map("reports")
+}
+
+// =============================================================================
+// AUDIT LOGS
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @db.Uuid
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(255)
+  entityType String   @db.VarChar(100)
+  entityId   String?  @db.Uuid
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+

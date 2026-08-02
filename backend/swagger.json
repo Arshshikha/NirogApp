@@ -1,0 +1,432 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NirogApp API",
+    "description": "API Documentation for NirogApp HealthTech Platform",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Creates a user account and provisions a role-specific profile (Patient, Doctor, Student, Provider)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "role", "name"],
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" },
+                  "email": { "type": "string", "example": "patient@nirog.com" },
+                  "password": { "type": "string", "example": "patient123" },
+                  "role": { "type": "string", "enum": ["Patient", "Doctor", "Student", "Provider"], "example": "Patient" },
+                  "age": { "type": "string", "example": "28 Years" },
+                  "phone": { "type": "string", "example": "+91 98765 43210" },
+                  "address": { "type": "string", "example": "Indirapuram, Ghaziabad" },
+                  "bloodGroup": { "type": "string", "example": "O-positive" },
+                  "specialty": { "type": "string", "example": "Cardiologist" },
+                  "category": { "type": "string", "example": "Allopathy" },
+                  "experience": { "type": "string", "example": "12" },
+                  "fee": { "type": "string", "example": "500" },
+                  "collegeName": { "type": "string", "example": "Nirog Institute" },
+                  "providerType": { "type": "string", "example": "Lab" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successfully registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "userId": { "type": "string" },
+                    "role": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid payload or user already exists" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user",
+        "description": "Logs in user using email, password and role to retrieve the user session details.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "role"],
+                "properties": {
+                  "email": { "type": "string", "example": "patient@nirog.com" },
+                  "password": { "type": "string", "example": "patient123" },
+                  "role": { "type": "string", "enum": ["Patient", "Doctor", "Student", "Provider"], "example": "Patient" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "session": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "summary": "Reset password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "role", "newPassword"],
+                "properties": {
+                  "email": { "type": "string", "example": "patient@nirog.com" },
+                  "role": { "type": "string", "example": "Patient" },
+                  "newPassword": { "type": "string", "example": "newpassword123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset successful" },
+          "404": { "description": "Account not found" }
+        }
+      }
+    },
+    "/bookings": {
+      "get": {
+        "summary": "Retrieve bookings",
+        "description": "Gets bookings filtered by user id and role.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["Patient", "Doctor", "Provider"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new booking appointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["patientId", "bookingType", "bookingDate", "bookingTime"],
+                "properties": {
+                  "patientId": { "type": "string", "example": "patient-uuid-here" },
+                  "doctorProfileId": { "type": "string", "example": "doctor-profile-uuid-here" },
+                  "providerProfileId": { "type": "string", "example": "provider-profile-uuid-here" },
+                  "bookingType": { "type": "string", "example": "Online Video" },
+                  "bookingDate": { "type": "string", "format": "date", "example": "2026-06-15" },
+                  "bookingTime": { "type": "string", "example": "10:30" },
+                  "fee": { "type": "number", "example": 500 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Booking scheduled successfully" }
+        }
+      }
+    },
+    "/bookings/{id}/status": {
+      "patch": {
+        "summary": "Update booking appointment status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["Pending", "Confirmed", "Completed", "Cancelled", "Rejected"], "example": "Confirmed" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated successfully" }
+        }
+      }
+    },
+    "/doctors": {
+      "get": {
+        "summary": "Get and search doctor listings",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["Allopathy", "Ayurveda"] }
+          },
+          {
+            "name": "specialty",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Search keyword for name or specialties"
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of matching doctors" }
+        }
+      }
+    },
+    "/doctors/profile": {
+      "post": {
+        "summary": "Onboard/Register doctor profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId", "specialty", "category"],
+                "properties": {
+                  "userId": { "type": "string", "example": "user-doctor-uuid" },
+                  "specialty": { "type": "string", "example": "Pediatrician" },
+                  "category": { "type": "string", "example": "Allopathy" },
+                  "experience": { "type": "number", "example": 8 },
+                  "fee": { "type": "number", "example": 400 },
+                  "availabilities": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["09:00 AM", "01:00 PM"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Doctor profile registered successfully" }
+        }
+      }
+    },
+    "/chat/conversations": {
+      "get": {
+        "summary": "Get all conversations for user",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of active user conversations" }
+        }
+      },
+      "post": {
+        "summary": "Create or fetch existing conversation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["patientId", "doctorUserId"],
+                "properties": {
+                  "patientId": { "type": "string", "example": "patient-uuid-here" },
+                  "doctorUserId": { "type": "string", "example": "doctor-user-uuid-here" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Conversation details returned" }
+        }
+      }
+    },
+    "/chat/conversations/{conversationId}/messages": {
+      "get": {
+        "summary": "Get conversation messages",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of messages in conversation" }
+        }
+      }
+    },
+    "/chat/messages": {
+      "post": {
+        "summary": "Send a chat message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["conversationId", "senderId", "senderType", "text"],
+                "properties": {
+                  "conversationId": { "type": "string", "example": "conversation-uuid-here" },
+                  "senderId": { "type": "string", "example": "user-uuid" },
+                  "senderType": { "type": "string", "enum": ["Patient", "Doctor"], "example": "Patient" },
+                  "text": { "type": "string", "example": "Hello, when can I visit the clinic?" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Message created" }
+        }
+      }
+    },
+    "/hub": {
+      "get": {
+        "summary": "Get educational hub items",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["Blog", "Article", "Special Case", "Course"] }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of matching educational resources" }
+        }
+      },
+      "post": {
+        "summary": "Create educational article / course",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["authorId", "title", "type", "content"],
+                "properties": {
+                  "authorId": { "type": "string", "example": "doctor-profile-uuid" },
+                  "title": { "type": "string", "example": "Introduction to Emergency First Aid" },
+                  "type": { "type": "string", "example": "Course" },
+                  "content": { "type": "string", "example": "Full course materials..." },
+                  "courseDetails": {
+                    "type": "object",
+                    "properties": {
+                      "level": { "type": "string", "example": "Beginner" },
+                      "price": { "type": "number", "example": 0 },
+                      "language": { "type": "string", "example": "Hindi" },
+                      "modules": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "moduleNumber": { "type": "number", "example": 1 },
+                            "title": { "type": "string", "example": "General Anatomy" },
+                            "summary": { "type": "string", "example": "Understanding the organ systems" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Content publication successful" }
+        }
+      }
+    },
+    "/hub/courses/{courseId}": {
+      "get": {
+        "summary": "Get detailed course lessons & modules",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Course structure details" }
+        }
+      }
+    }
+  }
+}
