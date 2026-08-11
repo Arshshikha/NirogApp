@@ -107,8 +107,8 @@
         .btn {
             background-color: var(--primary);
             color: white;
-            padding: 1rem 2.5rem;
-            font-size: 1.1rem;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
             font-weight: 600;
             border-radius: 50px;
             text-decoration: none;
@@ -117,6 +117,8 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            border: none;
+            cursor: pointer;
         }
 
         .btn:hover {
@@ -141,7 +143,7 @@
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
         }
 
@@ -151,6 +153,9 @@
             border-radius: 16px;
             padding: 2.5rem 2rem;
             transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         .card:hover {
@@ -159,16 +164,30 @@
             box-shadow: 0 10px 30px rgba(32, 138, 239, 0.1);
         }
 
-        .card h3 {
+        .card-header h3 {
             font-size: 1.35rem;
             font-weight: 600;
             margin-bottom: 1rem;
             color: var(--primary);
         }
 
-        .card p {
+        .card-header p {
             color: var(--text-muted);
             font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
         }
 
         /* Policy Section */
@@ -251,6 +270,8 @@
             nav { display: none; }
         }
     </style>
+    <!-- Include Razorpay Checkout library for live integration verification -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
 
@@ -267,27 +288,49 @@
     <div id="home-section">
         <section class="hero">
             <h1>Comprehensive E-Learning for Healthcare Students</h1>
-            <p>Master medical concepts, prepare for nursing certifications, and access high-quality mock tests and study materials curated by leading educators.</p>
-            <a href="https://drive.google.com/file/d/1N4FdSjz1dWFsxhwQ6lGGEQ9KybB6I5-W/view?usp=sharing" target="_blank" class="btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Download Nirog Academy App
+            <p>Master medical concepts, prepare for nursing certifications, and access high-quality courses and study materials curated by leading educators.</p>
+            <a href="#courses" class="btn">
+                Explore Available Courses
             </a>
         </section>
 
-        <section class="features">
-            <h2 class="section-title">Explore Learning Modules</h2>
+        <section id="courses" class="features">
+            <h2 class="section-title">Enrol in Specialized Online Courses</h2>
             <div class="grid">
+                <!-- Course 1 -->
                 <div class="card">
-                    <h3>Structured Video Courses</h3>
-                    <p>Learn anatomy, pathology, biochemistry, and clinical procedures through interactive video lectures created by experts.</p>
+                    <div class="card-header">
+                        <h3>Anatomy & Physiology Fundamentals</h3>
+                        <p>Complete guide to human anatomy with detailed graphical lectures, terminology flashcards, and quizzes.</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="price">₹499</span>
+                        <button onclick="payNow('Anatomy & Physiology Course', 499)" class="btn">Enrol Now</button>
+                    </div>
                 </div>
+
+                <!-- Course 2 -->
                 <div class="card">
-                    <h3>Study Materials & Notes</h3>
-                    <p>Download structured revision PDF notes, diagram guides, and flashcards designed for quick academic review.</p>
+                    <div class="card-header">
+                        <h3>Pharmacology Masterclass</h3>
+                        <p>Learn drug actions, classifications, side effects, and dosage calculations for medical and nursing examinations.</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="price">₹599</span>
+                        <button onclick="payNow('Pharmacology Masterclass', 599)" class="btn">Enrol Now</button>
+                    </div>
                 </div>
+
+                <!-- Course 3 -->
                 <div class="card">
-                    <h3>Mock Tests & Quiz Hub</h3>
-                    <p>Practice with thousands of test questions, mock exams, and analytics to prepare for university and competitive exams.</p>
+                    <div class="card-header">
+                        <h3>Clinical Pathology Study Materials</h3>
+                        <p>High-yield study notes, reference slides, and mock diagnostic question sets compiled for lab technicians.</p>
+                    </div>
+                    <div class="card-footer">
+                        <span class="price">₹399</span>
+                        <button onclick="payNow('Clinical Pathology Material', 399)" class="btn">Enrol Now</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -298,7 +341,7 @@
         <h2>Privacy Policy</h2>
         <div class="policy-content">
             <p><strong>Effective Date: August 6, 2026</strong></p>
-            <p>Nirog Academy ("we", "our", or "us") operates the website nirog.life and the Nirog Academy mobile application. This Privacy Policy outlines how we collect, store, and protect your information when you enroll in our courses or use our e-learning platform.</p>
+            <p>Nirog Academy ("we", "our", or "us") operates the website nirog.life. This Privacy Policy outlines how we collect, store, and protect your information when you enroll in our courses or use our e-learning platform.</p>
             
             <h3>1. Information We Collect</h3>
             <p>We collect personal information such as your name, email address, contact number, course progress, payment transaction details, and academic details to facilitate account creation and course delivery.</p>
@@ -319,7 +362,7 @@
         <h2>Terms & Conditions</h2>
         <div class="policy-content">
             <p><strong>Effective Date: August 6, 2026</strong></p>
-            <p>Welcome to Nirog Academy. By accessing or using our platform at nirog.life or our application, you agree to comply with and be bound by these Terms and Conditions.</p>
+            <p>Welcome to Nirog Academy. By accessing or using our platform at nirog.life, you agree to comply with and be bound by these Terms and Conditions.</p>
 
             <h3>1. Eligible Services</h3>
             <p>Nirog Academy is a digital educational marketplace. We do not provide clinical practice rights, medical diagnoses, or treatment plans. Our content is purely for academic reference and exam preparation.</p>
@@ -430,6 +473,34 @@
             document.getElementById(type + '-section').style.display = 'block';
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Razorpay Standard Integration trigger script
+        function payNow(courseName, amount) {
+            var options = {
+                "key": "rzp_test_TFPJfIO56NxdBw", // User's active test key
+                "amount": amount * 100, // Amount in paise
+                "currency": "INR",
+                "name": "Nirog Academy",
+                "description": "Enrollment fee for " + courseName,
+                "image": "https://nirog.life/favicon.png",
+                "handler": function (response){
+                    alert("Payment Successful! Payment ID: " + response.razorpay_payment_id);
+                },
+                "prefill": {
+                    "name": "Test Student",
+                    "email": "student@nirog.com",
+                    "contact": "9876543210"
+                },
+                "notes": {
+                    "course": courseName
+                },
+                "theme": {
+                    "color": "#208AEF"
+                }
+            };
+            var rzp = new Razorpay(options);
+            rzp.open();
         }
     </script>
 </body>
