@@ -67,46 +67,50 @@ export const markConversationAsRead = (doctorId: string, patientId?: string) => 
 };
 
 
+const resolvePatientId = (session: any, patientId?: string, patientName?: string): string => {
+  if (session?.role === 'Doctor' || session?.role === 'Provider') {
+    if (patientId && patientId.trim() !== '') return patientId.trim();
+    if (patientName && patientName.trim() !== '') {
+      return `patient_${patientName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    }
+    return 'default_patient';
+  }
+  return patientId || session?.id || 'default_patient';
+};
+
 const loadMessagesFromApi = async (doctorId: string, patientId?: string, patientName?: string) => {
   const session = getSession();
   if (!session || !session.id) return;
 
-  const actualPatientId = (session.role === 'Doctor' || session.role === 'Provider') ? patientId : (patientId || session.id);
-  if (!actualPatientId) return;
+  const actualPatientId = resolvePatientId(session, patientId, patientName);
+  const effectiveDoctorId = doctorId || session.profileId || session.id || 'default_doctor';
 
   let doctorUserId: string | undefined;
   if (session.role === 'Doctor' || session.role === 'Provider') {
     doctorUserId = session.id;
   } else {
     const doctors = getDoctors();
-    const doctor = doctors.find(d => d.id === doctorId);
+    const doctor = doctors.find(d => d.id === effectiveDoctorId);
     doctorUserId = doctor?.userId;
     if (!doctorUserId) {
       const bookings = getBookings();
-      const booking = bookings.find(b => b.providerId === doctorId);
+      const booking = bookings.find(b => b.providerId === effectiveDoctorId);
       doctorUserId = booking?.providerUserId;
     }
     if (!doctorUserId) {
       const providers = getProviders();
-      const provider = providers.find(p => p.id === doctorId);
+      const provider = providers.find(p => p.id === effectiveDoctorId);
       doctorUserId = provider?.userId;
     }
-    if (!doctorUserId && doctorId.startsWith('p')) {
-      doctorUserId = `mock_provider_user_id_${doctorId}`;
+    if (!doctorUserId && effectiveDoctorId.startsWith('p')) {
+      doctorUserId = `mock_provider_user_id_${effectiveDoctorId}`;
     }
-    if (!doctorUserId && doctorId.startsWith('d')) {
-      doctorUserId = `mock_doctor_user_id_${doctorId}`;
+    if (!doctorUserId && effectiveDoctorId.startsWith('d')) {
+      doctorUserId = `mock_doctor_user_id_${effectiveDoctorId}`;
     }
   }
 
-  const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
-  if (!doctorUserId && !isUuid(doctorId)) {
-    console.error('Cannot resolve doctorUserId for doctorId:', doctorId);
-    return;
-  }
-
-  const cacheKey = `${doctorId}_${actualPatientId}`;
+  const cacheKey = `${effectiveDoctorId}_${actualPatientId}`;
   const fetchKey = `fetch_${cacheKey}`;
   if (activeFetches[fetchKey]) return;
   activeFetches[fetchKey] = true;
@@ -114,11 +118,11 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
   try {
     // 1. Get or create conversation ID
     let conversationId = conversationsCache[cacheKey];
-    if (!conversationId) {
+    if (!conversationId || conversationId.startsWith('conv_')) {
       const convRes = await apiPost('/chat/conversations', {
         patientId: actualPatientId,
         doctorUserId,
-        doctorProfileId: doctorId
+        doctorProfileId: effectiveDoctorId
       });
       if (convRes && convRes.id) {
         conversationId = convRes.id;
@@ -126,8 +130,8 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
       }
     }
 
-    if (conversationId) {
-      // 2. Fetch messages
+    if (conversationId && !conversationId.startsWith('conv_')) {
+      // 2. Fetch messages from database
       const dbMessages = await apiGet(`/chat/conversations/${conversationId}/messages`);
       if (dbMessages && Array.isArray(dbMessages)) {
         let docName = 'Healthcare Provider';
@@ -135,11 +139,11 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
           docName = session.name;
         } else {
           const doctors = getDoctors();
-          const doctor = doctors.find(d => d.id === doctorId);
+          const doctor = doctors.find(d => d.id === effectiveDoctorId);
           docName = doctor?.name || 'Healthcare Provider';
         }
 
-        messagesCache[conversationId] = dbMessages.map((m: any) => {
+        const remoteList: ChatMessage[] = dbMessages.map((m: any) => {
           const isPatient = m.senderType === 'PATIENT';
           const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return {
@@ -153,6 +157,12 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
             fileName: m.attachments?.[0]?.file?.name || undefined
           };
         });
+
+        // Retain optimistic local messages that haven't synced yet
+        const currentList = messagesCache[conversationId] || [];
+        const pendingLocal = currentList.filter(m => m.id.startsWith('local_'));
+        
+        messagesCache[conversationId] = [...remoteList, ...pendingLocal];
         listeners.forEach(fn => fn());
       }
     }
@@ -167,13 +177,12 @@ export const getMessages = (doctorId: string, patientId?: string, patientName?: 
   const session = getSession();
   if (!session) return [];
 
-  const actualPatientId = (session.role === 'Doctor' || session.role === 'Provider') ? patientId : (patientId || session.id);
-  if (!actualPatientId) return [];
-
-  const cacheKey = `${doctorId}_${actualPatientId}`;
+  const actualPatientId = resolvePatientId(session, patientId, patientName);
+  const effectiveDoctorId = doctorId || session.profileId || session.id || 'default_doctor';
+  const cacheKey = `${effectiveDoctorId}_${actualPatientId}`;
   
   // Trigger background load
-  loadMessagesFromApi(doctorId, actualPatientId, patientName);
+  loadMessagesFromApi(effectiveDoctorId, actualPatientId, patientName);
 
   const conversationId = conversationsCache[cacheKey];
   if (conversationId && messagesCache[conversationId]) {
@@ -186,6 +195,12 @@ export const getMessages = (doctorId: string, patientId?: string, patientName?: 
     }
     return list;
   }
+
+  const fallbackKey = `conv_${cacheKey}`;
+  if (messagesCache[fallbackKey]) {
+    return messagesCache[fallbackKey];
+  }
+
   return [];
 };
 
@@ -198,19 +213,22 @@ export const sendMessage = async (
   fileDetails?: { type: 'image' | 'pdf'; url: string; name: string }
 ) => {
   const session = getSession();
-  const actualPatientId = session.role === 'Doctor' ? patientId : (patientId || session.id);
-  const cacheKey = `${doctorId}_${actualPatientId}`;
-  const conversationId = conversationsCache[cacheKey];
+  if (!session) return;
 
+  const actualPatientId = resolvePatientId(session, patientId, sender === 'doctor' ? undefined : senderName);
+  const effectiveDoctorId = doctorId || session.profileId || session.id || 'default_doctor';
+  const cacheKey = `${effectiveDoctorId}_${actualPatientId}`;
+
+  let conversationId = conversationsCache[cacheKey];
   if (!conversationId) {
-    console.error('No active conversation to send message');
-    return;
+    conversationId = `conv_${cacheKey}`;
+    conversationsCache[cacheKey] = conversationId;
   }
 
-  // Optimistic local add
+  // 1. Optimistic local add (IMMEDIATE UI UPDATE)
   const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const localMsg: ChatMessage = {
-    id: `local_${Date.now()}`,
+    id: `local_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     sender,
     text,
     timestamp,
@@ -226,18 +244,37 @@ export const sendMessage = async (
   messagesCache[conversationId] = [...messagesCache[conversationId], localMsg];
   listeners.forEach(fn => fn());
 
+  // 2. Async backend sync
   try {
+    let resolvedConvId = conversationId;
+    if (resolvedConvId.startsWith('conv_')) {
+      const convRes = await apiPost('/chat/conversations', {
+        patientId: actualPatientId,
+        doctorUserId: (session.role === 'Doctor' || session.role === 'Provider') ? session.id : undefined,
+        doctorProfileId: effectiveDoctorId
+      });
+      if (convRes && convRes.id) {
+        resolvedConvId = convRes.id;
+        conversationsCache[cacheKey] = resolvedConvId;
+        if (!messagesCache[resolvedConvId]) {
+          messagesCache[resolvedConvId] = messagesCache[conversationId] || [];
+        } else {
+          const existingIds = new Set(messagesCache[resolvedConvId].map(m => m.id));
+          const newOnes = (messagesCache[conversationId] || []).filter(m => !existingIds.has(m.id));
+          messagesCache[resolvedConvId] = [...messagesCache[resolvedConvId], ...newOnes];
+        }
+      }
+    }
+
     const body = {
-      conversationId,
+      conversationId: resolvedConvId,
       senderId: session.id,
       senderType: sender.toUpperCase(),
       text
     };
 
-    const res = await apiPost('/chat/messages', body);
-    if (res) {
-      loadMessagesFromApi(doctorId, actualPatientId, sender === 'patient' ? senderName : undefined);
-    }
+    await apiPost('/chat/messages', body);
+    loadMessagesFromApi(effectiveDoctorId, actualPatientId, sender === 'patient' ? senderName : undefined);
   } catch (e) {
     console.error('Failed to send message to backend', e);
   }

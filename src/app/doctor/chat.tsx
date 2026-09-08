@@ -54,19 +54,20 @@ export default function DoctorChatScreen() {
   const patientId = (params.patientId as string) || '';
 
   const session = getSession();
-  const doctorId = session.profileId || '';
+  const doctorId = session.profileId || session.id || 'default_doctor';
+  const safePatientId = patientId || (patientName ? `patient_${patientName.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'default_patient');
   
-  const [messages, setMessages] = useState(() => getMessages(doctorId, patientId, patientName));
+  const [messages, setMessages] = useState(() => getMessages(doctorId, safePatientId, patientName));
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     const unsubscribe = subscribe(() => {
-      setMessages(getMessages(doctorId, patientId, patientName));
+      setMessages(getMessages(doctorId, safePatientId, patientName));
     });
     return () => unsubscribe();
-  }, [doctorId, patientId, patientName]);
+  }, [doctorId, safePatientId, patientName]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -76,8 +77,9 @@ export default function DoctorChatScreen() {
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    sendMessage(doctorId, patientId, 'doctor', inputText.trim(), session.name);
+    const text = inputText.trim();
     setInputText('');
+    sendMessage(doctorId, safePatientId, 'doctor', text, session.name || 'Doctor');
   };
 
   const handleAttachFile = () => {
