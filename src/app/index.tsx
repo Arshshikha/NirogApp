@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet
+  KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet, Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -97,6 +97,9 @@ export default function AuthScreen() {
   const [uploadedDoc, setUploadedDoc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Loading state
+  const [isLoading, setIsLoading] = useState(false);
+
   // Active input tracking (for focus styles)
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
@@ -131,14 +134,21 @@ export default function AuthScreen() {
         return;
       }
       
-      const success = await resetPassword(email.trim(), role, password);
-      if (success) {
-        setSuccessMsg('Password reset successful! You can now sign in.');
-        setConfirmPassword('');
-        setPassword('');
-        setMode('login');
-      } else {
-        setErrorMsg(`No registered ${role} found with this email address.`);
+      setIsLoading(true);
+      try {
+        const success = await resetPassword(email.trim(), role, password);
+        if (success) {
+          setSuccessMsg('Password reset successful! You can now sign in.');
+          setConfirmPassword('');
+          setPassword('');
+          setMode('login');
+        } else {
+          setErrorMsg(`No registered ${role} found with this email address.`);
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Password reset failed.');
+      } finally {
+        setIsLoading(false);
       }
       return;
     }
@@ -159,165 +169,173 @@ export default function AuthScreen() {
       return;
     }
 
-    if (mode === 'login') {
-      // Sign-In credentials check
-      let user;
-      try {
-        user = await verifyCredentials(email.trim(), password, role);
-        if (!user) {
-          setErrorMsg(`Incorrect email id or password combination for ${role}.`);
+    setIsLoading(true);
+    try {
+      if (mode === 'login') {
+        // Sign-In credentials check
+        let user;
+        try {
+          user = await verifyCredentials(email.trim(), password, role);
+          if (!user) {
+            setErrorMsg(`Incorrect email id or password combination for ${role}.`);
+            return;
+          }
+        } catch (err: any) {
+          console.error('Login error:', err);
+          setErrorMsg(err.message || 'Connection error. Please check if the server is running.');
           return;
         }
-      } catch (err: any) {
-        console.error('Login error:', err);
-        setErrorMsg(err.message || 'Connection error. Please check if the server is running.');
-        return;
-      }
 
-      const convertTo24h = (time12h: string): string => {
-        const [time, modifier] = time12h.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') {
-          hours = '00';
-        }
-        if (modifier === 'PM') {
-          hours = String(parseInt(hours, 10) + 12);
-        }
-        return `${hours.padStart(2, '0')}:${minutes}`;
-      };
+        const convertTo24h = (time12h: string): string => {
+          const [time, modifier] = time12h.split(' ');
+          let [hours, minutes] = time.split(':');
+          if (hours === '12') {
+            hours = '00';
+          }
+          if (modifier === 'PM') {
+            hours = String(parseInt(hours, 10) + 12);
+          }
+          return `${hours.padStart(2, '0')}:${minutes}`;
+        };
 
-      setSession(
-        user.name,
-        user.email,
-        user.role,
-        user.documentName,
-        user.age,
-        user.bloodGroup,
-        user.address,
-        user.phone,
-        user.collegeName,
-        user.experience,
-        user.id,
-        user.profileId,
-        user.category,
-        user.fee,
-        user.consultationMode,
-        user.onlineSlots,
-        user.offlineSlots,
-        user.token
-      );
-
-      const path = role === 'Patient' ? '/patient' : role === 'Doctor' ? '/doctor' : role === 'Student' ? '/student' : '/provider';
-      router.replace(path);
-    } else {
-      // Sign Up validation checks
-      if (!name.trim()) { setErrorMsg('Please enter your full name.'); return; }
-      if (!age.trim()) { setErrorMsg('Please enter your age.'); return; }
-      if (!phone.trim()) { setErrorMsg('Please enter your phone number.'); return; }
-      if (!address.trim()) { setErrorMsg('Please enter your address.'); return; }
-
-      if (role === 'Patient') {
-        if (!bloodGroup.trim()) { setErrorMsg('Please enter your blood group.'); return; }
-      } else if (role === 'Student') {
-        if (!collegeName.trim()) { setErrorMsg('Please enter your college name.'); return; }
-        if (!uploadedDoc) { setErrorMsg('Please upload your Student ID Card.'); return; }
-      } else if (role === 'Doctor') {
-        if (!experience.trim()) { setErrorMsg('Please enter your experience.'); return; }
-        if (!feeInput.trim()) { setErrorMsg('Please specify your consultation fee.'); return; }
-        const feeVal = parseFloat(feeInput);
-        if (isNaN(feeVal) || feeVal <= 0) { setErrorMsg('Please enter a valid consultation fee.'); return; }
-        if (consultationMode === 'Online' || consultationMode === 'Both') {
-          if (selOnlineSlots.length === 0) { setErrorMsg('Please select at least one online timing slot.'); return; }
-        }
-        if (consultationMode === 'Offline' || consultationMode === 'Both') {
-          if (selOfflineSlots.length === 0) { setErrorMsg('Please select at least one offline timing slot.'); return; }
-        }
-        if (!uploadedDoc) { setErrorMsg('Please upload your Medical License.'); return; }
-      } else if (role === 'Provider') {
-        if (!experience.trim()) { setErrorMsg('Please enter your company experience.'); return; }
-        if (!uploadedDoc) { setErrorMsg('Please upload your Provider Registration License.'); return; }
-      }
-
-      const convertTo24h = (time12h: string): string => {
-        const [time, modifier] = time12h.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') {
-          hours = '00';
-        }
-        if (modifier === 'PM') {
-          hours = String(parseInt(hours, 10) + 12);
-        }
-        return `${hours.padStart(2, '0')}:${minutes}`;
-      };
-
-      // Save user-registered details to credentials store
-      const newAccount = {
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        role,
-        documentName: uploadedDoc || undefined,
-        age: age.trim(),
-        bloodGroup: role === 'Patient' ? bloodGroup.trim() : undefined,
-        address: address.trim(),
-        phone: phone.trim(),
-        collegeName: role === 'Student' ? collegeName.trim() : undefined,
-        experience: role === 'Doctor' || role === 'Provider' ? experience.trim() : undefined,
-        category: role === 'Doctor' ? category : undefined,
-        fee: role === 'Doctor' ? parseFloat(feeInput) : undefined,
-        consultationMode: role === 'Doctor' ? consultationMode : undefined,
-        onlineSlots: role === 'Doctor' ? selOnlineSlots.map(convertTo24h) : undefined,
-        offlineSlots: role === 'Doctor' ? selOfflineSlots.map(convertTo24h) : undefined
-      };
-      
-      const regResult = await registerAccount(newAccount);
-
-      // If Doctor role, add to doctorStore registry
-      if (role === 'Doctor' && regResult?.userId) {
-        addDoctor(
-          name.trim(),
-          'General Physician',
-          category,
-          parseInt(experience.trim()) || 5,
-          address.trim(),
-          parseFloat(feeInput) || 500,
-          consultationMode === 'Online' ? selOnlineSlots : selOfflineSlots,
-          'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200',
-          phone.trim(),
-          email.trim(),
-          uploadedDoc || undefined,
-          consultationMode,
-          selOnlineSlots,
-          selOfflineSlots,
-          regResult.profileId || undefined,
-          regResult.userId
+        setSession(
+          user.name,
+          user.email,
+          user.role,
+          user.documentName,
+          user.age,
+          user.bloodGroup,
+          user.address,
+          user.phone,
+          user.collegeName,
+          user.experience,
+          user.id,
+          user.profileId,
+          user.category,
+          user.fee,
+          user.consultationMode,
+          user.onlineSlots,
+          user.offlineSlots,
+          user.token
         );
+
+        const path = role === 'Patient' ? '/patient' : role === 'Doctor' ? '/doctor' : role === 'Student' ? '/student' : '/provider';
+        router.replace(path);
+      } else {
+        // Sign Up validation checks
+        if (!name.trim()) { setErrorMsg('Please enter your full name.'); return; }
+        if (!age.trim()) { setErrorMsg('Please enter your age.'); return; }
+        if (!phone.trim()) { setErrorMsg('Please enter your phone number.'); return; }
+        if (!address.trim()) { setErrorMsg('Please enter your address.'); return; }
+
+        if (role === 'Patient') {
+          if (!bloodGroup.trim()) { setErrorMsg('Please enter your blood group.'); return; }
+        } else if (role === 'Student') {
+          if (!collegeName.trim()) { setErrorMsg('Please enter your college name.'); return; }
+          if (!uploadedDoc) { setErrorMsg('Please upload your Student ID Card.'); return; }
+        } else if (role === 'Doctor') {
+          if (!experience.trim()) { setErrorMsg('Please enter your experience.'); return; }
+          if (!feeInput.trim()) { setErrorMsg('Please specify your consultation fee.'); return; }
+          const feeVal = parseFloat(feeInput);
+          if (isNaN(feeVal) || feeVal <= 0) { setErrorMsg('Please enter a valid consultation fee.'); return; }
+          if (consultationMode === 'Online' || consultationMode === 'Both') {
+            if (selOnlineSlots.length === 0) { setErrorMsg('Please select at least one online timing slot.'); return; }
+          }
+          if (consultationMode === 'Offline' || consultationMode === 'Both') {
+            if (selOfflineSlots.length === 0) { setErrorMsg('Please select at least one offline timing slot.'); return; }
+          }
+          if (!uploadedDoc) { setErrorMsg('Please upload your Medical License.'); return; }
+        } else if (role === 'Provider') {
+          if (!experience.trim()) { setErrorMsg('Please enter your company experience.'); return; }
+          if (!uploadedDoc) { setErrorMsg('Please upload your Provider Registration License.'); return; }
+        }
+
+        const convertTo24h = (time12h: string): string => {
+          const [time, modifier] = time12h.split(' ');
+          let [hours, minutes] = time.split(':');
+          if (hours === '12') {
+            hours = '00';
+          }
+          if (modifier === 'PM') {
+            hours = String(parseInt(hours, 10) + 12);
+          }
+          return `${hours.padStart(2, '0')}:${minutes}`;
+        };
+
+        // Save user-registered details to credentials store
+        const newAccount = {
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          role,
+          documentName: uploadedDoc || undefined,
+          age: age.trim(),
+          bloodGroup: role === 'Patient' ? bloodGroup.trim() : undefined,
+          address: address.trim(),
+          phone: phone.trim(),
+          collegeName: role === 'Student' ? collegeName.trim() : undefined,
+          experience: role === 'Doctor' || role === 'Provider' ? experience.trim() : undefined,
+          category: role === 'Doctor' ? category : undefined,
+          fee: role === 'Doctor' ? parseFloat(feeInput) : undefined,
+          consultationMode: role === 'Doctor' ? consultationMode : undefined,
+          onlineSlots: role === 'Doctor' ? selOnlineSlots.map(convertTo24h) : undefined,
+          offlineSlots: role === 'Doctor' ? selOfflineSlots.map(convertTo24h) : undefined
+        };
+        
+        const regResult = await registerAccount(newAccount);
+
+        // If Doctor role, add to doctorStore registry
+        if (role === 'Doctor' && regResult?.userId) {
+          addDoctor(
+            name.trim(),
+            'General Physician',
+            category,
+            parseInt(experience.trim()) || 5,
+            address.trim(),
+            parseFloat(feeInput) || 500,
+            consultationMode === 'Online' ? selOnlineSlots : selOfflineSlots,
+            'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200',
+            phone.trim(),
+            email.trim(),
+            uploadedDoc || undefined,
+            consultationMode,
+            selOnlineSlots,
+            selOfflineSlots,
+            regResult.profileId || undefined,
+            regResult.userId
+          );
+        }
+
+        // Set session and redirect
+        setSession(
+          newAccount.name,
+          newAccount.email,
+          newAccount.role,
+          newAccount.documentName,
+          newAccount.age,
+          newAccount.bloodGroup,
+          newAccount.address,
+          newAccount.phone,
+          newAccount.collegeName,
+          newAccount.experience,
+          regResult?.userId || undefined,
+          regResult?.profileId || undefined,
+          newAccount.category,
+          newAccount.fee,
+          newAccount.consultationMode,
+          newAccount.consultationMode ? selOnlineSlots : undefined,
+          newAccount.consultationMode ? selOfflineSlots : undefined,
+          regResult?.token || undefined
+        );
+
+        const path = role === 'Patient' ? '/patient' : role === 'Doctor' ? '/doctor' : role === 'Student' ? '/student' : '/provider';
+        router.replace(path);
       }
-
-      // Set session and redirect
-      setSession(
-        newAccount.name,
-        newAccount.email,
-        newAccount.role,
-        newAccount.documentName,
-        newAccount.age,
-        newAccount.bloodGroup,
-        newAccount.address,
-        newAccount.phone,
-        newAccount.collegeName,
-        newAccount.experience,
-        regResult?.userId || undefined,
-        regResult?.profileId || undefined,
-        newAccount.category,
-        newAccount.fee,
-        newAccount.consultationMode,
-        newAccount.consultationMode ? selOnlineSlots : undefined,
-        newAccount.consultationMode ? selOfflineSlots : undefined,
-        regResult?.token || undefined
-      );
-
-      const path = role === 'Patient' ? '/patient' : role === 'Doctor' ? '/doctor' : role === 'Student' ? '/student' : '/provider';
-      router.replace(path);
+    } catch (err: any) {
+      console.error('Auth processing error:', err);
+      setErrorMsg(err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -369,15 +387,12 @@ export default function AuthScreen() {
       >
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 48, justifyContent: 'center' }}>
           
-          {/* Logo Header */}
+          {/* Logo Header with Official Nirog Logo */}
           <View style={{ alignItems: 'center', marginBottom: 20 }}>
-            <View style={{
-              width: 54, height: 54, borderRadius: 16, backgroundColor: '#0ea5e9',
-              alignItems: 'center', justifyContent: 'center', marginBottom: 10,
-              shadowColor: '#0ea5e9', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-            }}>
-              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>N</Text>
-            </View>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={{ width: 84, height: 84, resizeMode: 'contain', marginBottom: 8 }}
+            />
             <Text style={{ color: '#0f172a', textTransform: 'uppercase', fontSize: 18, fontWeight: '900', letterSpacing: -0.5 }}>
               Nirog <Text style={{ color: '#10b981', fontWeight: '700' }}>Health</Text>
             </Text>
@@ -855,18 +870,29 @@ export default function AuthScreen() {
             </View>
           </View>
 
-          {/* Submit Action Button */}
+          {/* Submit Action Button with Loading Spinner */}
           <TouchableOpacity
             onPress={handleAuth}
+            disabled={isLoading}
+            activeOpacity={0.8}
             style={{
-              backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 16,
+              backgroundColor: isLoading ? '#6ee7b7' : '#10b981', paddingVertical: 16, borderRadius: 16,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
             }}
           >
-            <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>
-              {mode === 'login' ? 'Verify & Sign In' : mode === 'register' ? 'Submit & Register Profile' : 'Reset Password'}
-            </Text>
+            {isLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>
+                  {mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : 'Resetting Password...'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>
+                {mode === 'login' ? 'Verify & Sign In' : mode === 'register' ? 'Submit & Register Profile' : 'Reset Password'}
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Secure Trust Badge */}

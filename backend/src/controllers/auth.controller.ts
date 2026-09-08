@@ -241,7 +241,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         },
         studentProfile: true,
         providerProfile: {
-          include: { address: true, services: true }
+          include: { address: true }
         },
       },
     });

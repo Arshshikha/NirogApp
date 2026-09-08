@@ -194,14 +194,10 @@ export default function HospitalsScreen() {
         elevation: 3,marginTop:-36,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 10,
-            backgroundColor: '#0ea5e9',
-            alignItems: 'center', justifyContent: 'center', marginRight: 10,
-            shadowColor: '#0ea5e9', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,marginTop:28,
-          }}>
-            <CrossIcon size={16} color="#ffffff" />
-          </View>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={{ width: 38, height: 38, resizeMode: 'contain', marginRight: 10, marginTop: 28 }}
+          />
           <View>
             <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 15, letterSpacing: -0.3 , marginTop:28}}>
               PROVIDER <Text style={{ color: '#10b981', fontWeight: '700' }}>HOSPITALS</Text>
@@ -227,26 +223,40 @@ export default function HospitalsScreen() {
       </View>
 
       {/* Region Filter */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 8 }}>
-        {(['All', 'Noida', 'Ghaziabad'] as const).map((region) => {
-          const isActive = selectedRegion === region;
-          return (
-            <TouchableOpacity
-              key={region}
-              onPress={() => setSelectedRegion(region)}
-              style={{
-                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                backgroundColor: isActive ? '#e0f2fe' : '#ffffff',
-                borderColor: isActive ? '#38bdf8' : '#e2e8f0',
-                shadowColor: '#0ea5e9', shadowOpacity: isActive ? 0.1 : 0.04, shadowRadius: 4, elevation: isActive ? 2 : 1,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: isActive ? '#0369a1' : '#64748b' }}>
-                {region === 'All' ? 'All Locations' : region}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={{ paddingVertical: 4 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+          canCancelContentTouches={true}
+          scrollEventThrottle={16}
+          directionalLockEnabled={true}
+          contentContainerStyle={{ paddingLeft: 16, paddingRight: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center' }}
+        >
+          {(['All', 'Noida', 'Ghaziabad'] as const).map((region) => {
+            const isActive = selectedRegion === region;
+            return (
+              <TouchableOpacity
+                key={region}
+                activeOpacity={0.7}
+                onPress={() => setSelectedRegion(region)}
+                style={{
+                  flexShrink: 0,
+                  marginRight: 8,
+                  paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                  backgroundColor: isActive ? '#e0f2fe' : '#ffffff',
+                  borderColor: isActive ? '#38bdf8' : '#e2e8f0',
+                  shadowColor: '#0ea5e9', shadowOpacity: isActive ? 0.1 : 0.04, shadowRadius: 4, elevation: isActive ? 2 : 1,
+                }}
+              >
+                <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: isActive ? '#0369a1' : '#64748b' }}>
+                  {region === 'All' ? 'All Locations' : region}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Hospital List */}
@@ -299,14 +309,23 @@ export default function HospitalsScreen() {
       {selectedHospital && (
         <Modal visible={bookingModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
+            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, position: 'relative' }}>
+              {/* Close X Button */}
+              <TouchableOpacity
+                onPress={() => setBookingModalVisible(false)}
+                style={{ position: 'absolute', top: 18, right: 18, zIndex: 20, width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ color: '#64748b', fontSize: 14, fontWeight: '900' }}>✕</Text>
+              </TouchableOpacity>
+
+              {/* Handle */}
               <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
               <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Hospital Visit Booking</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Configure department, date, time, and fee</Text>
+                <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Hospital Booking</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Book specialized in-person or online services</Text>
               </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 14, borderRadius: 16, marginBottom: 16, gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 14, borderRadius: 16, marginBottom: 18, gap: 12 }}>
                 <Image source={{ uri: selectedHospital.avatar }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#7dd3fc' }} />
                 <View>
                   <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 13 }}>{selectedHospital.name}</Text>
@@ -393,7 +412,7 @@ export default function HospitalsScreen() {
                 onPress={() => setBookingModalVisible(false)}
                 style={{ borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', paddingVertical: 13, borderRadius: 16, alignItems: 'center' }}
               >
-                <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel</Text>
+                <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel & Go Back</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -404,7 +423,16 @@ export default function HospitalsScreen() {
       {selectedHospital && (
         <Modal visible={checkoutModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 }}>
+            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, position: 'relative' }}>
+              {/* Close X Button */}
+              <TouchableOpacity
+                onPress={() => setCheckoutModalVisible(false)}
+                disabled={isProcessingPayment}
+                style={{ position: 'absolute', top: 18, right: 18, zIndex: 20, width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ color: '#64748b', fontSize: 14, fontWeight: '900' }}>✕</Text>
+              </TouchableOpacity>
+
               <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
               
               <View style={{ alignItems: 'center', marginBottom: 20 }}>

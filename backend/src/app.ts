@@ -4,8 +4,14 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerDocument from '../swagger.json';
 import apiRoutes from './routes';
+import { db } from './config/db';
 
 dotenv.config();
+
+// Ensure schema columns are present in database
+db.$executeRawUnsafe(`ALTER TABLE IF EXISTS "provider_services" ADD COLUMN IF NOT EXISTS "availableSlot" VARCHAR(100);`)
+  .then(() => console.log('[database]: Auto-migration checked for provider_services.availableSlot'))
+  .catch((err) => console.error('[database]: Auto-migration error:', err));
 
 const app = express();
 const port = process.env.PORT || 5000;

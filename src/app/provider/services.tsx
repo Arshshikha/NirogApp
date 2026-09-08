@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getSession } from '../../utils/authStore';
@@ -17,7 +17,7 @@ interface MedicalService {
 const ClockIcon = ({ size = 10, color = '#94a3b8' }: { size?: number; color?: string }) => (
   <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
     <View style={{ position: 'absolute', width: 1.5, height: size * 0.35, backgroundColor: color, top: size * 0.12, borderRadius: 1 }} />
-    <View style={{ position: 'absolute', width: size * 0.3, height: 1.5, backgroundColor: color, left: size * 0.5, top: size * 0.43, borderRadius: 1 }} />
+    <View style={{ position: 'absolute', width: size * 0.3, height: 1.5, backgroundColor: color, left: size * 0.43, borderRadius: 1 }} />
   </View>
 );
 
@@ -95,13 +95,13 @@ export default function ProviderServicesScreen() {
         shadowColor: '#0ea5e9', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,marginTop:-36,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981',
-            alignItems: 'center', justifyContent: 'center', marginRight: 10,
-            shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,marginTop:28,
-          }}>
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '900', }}>O</Text>
-          </View>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={{
+              width: 36, height: 36, borderRadius: 10, marginRight: 10, marginTop: 28
+            }}
+            resizeMode="contain"
+          />
           <View>
             <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 15, letterSpacing: -0.3 ,marginTop:28,}}>
               SERVICE <Text style={{ color: '#0ea5e9', fontWeight: '700' }}>OFFERINGS</Text>

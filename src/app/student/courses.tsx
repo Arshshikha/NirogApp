@@ -163,9 +163,13 @@ export default function StudentCoursesScreen() {
         </TouchableOpacity>
       )}
       {!onBack && (
-        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center', marginRight: 10, shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3, marginTop: 28 }}>
-          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '900' }}>C</Text>
-        </View>
+        <Image
+          source={require('../../../assets/images/logo.png')}
+          style={{
+            width: 36, height: 36, borderRadius: 10, marginRight: 10, marginTop: 28
+          }}
+          resizeMode="contain"
+        />
       )}
       <View style={{ flex: 1,marginTop:28 }}>
         <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 14, letterSpacing: -0.3 ,}} numberOfLines={1}>
@@ -618,25 +622,36 @@ export default function StudentCoursesScreen() {
             </Text>
 
             {/* Lesson selector pills */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {activeModule.lessons.map((lesson, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => setActiveLesson(i)}
-                    style={{
-                      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                      backgroundColor: activeLesson === i ? '#0ea5e9' : '#ffffff',
-                      borderColor: activeLesson === i ? '#0ea5e9' : '#bae6fd',
-                      shadowColor: '#0ea5e9', shadowOpacity: activeLesson === i ? 0.25 : 0.04, shadowRadius: 4, elevation: activeLesson === i ? 2 : 1,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: activeLesson === i ? '#ffffff' : '#0369a1' }}>
-                      Lesson {i + 1}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+              canCancelContentTouches={true}
+              scrollEventThrottle={16}
+              directionalLockEnabled={true}
+              contentContainerStyle={{ paddingRight: 8, flexDirection: 'row', alignItems: 'center' }}
+              style={{ marginBottom: 14 }}
+            >
+              {activeModule.lessons.map((lesson, i) => (
+                <TouchableOpacity
+                  key={i}
+                  activeOpacity={0.7}
+                  onPress={() => setActiveLesson(i)}
+                  style={{
+                    flexShrink: 0,
+                    marginRight: 8,
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                    backgroundColor: activeLesson === i ? '#0ea5e9' : '#ffffff',
+                    borderColor: activeLesson === i ? '#0ea5e9' : '#bae6fd',
+                    shadowColor: '#0ea5e9', shadowOpacity: activeLesson === i ? 0.25 : 0.04, shadowRadius: 4, elevation: activeLesson === i ? 2 : 1,
+                  }}
+                >
+                  <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: activeLesson === i ? '#ffffff' : '#0369a1' }}>
+                    Lesson {i + 1}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
 
             {/* Active lesson content */}
@@ -865,8 +880,20 @@ function UpgradeModal({
           padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20,
           maxHeight: '90%'
         }}>
-          {/* Drag handle */}
-          <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
+          {/* Drag handle & Close Button */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <View style={{ width: 32 }} />
+            <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2 }} />
+            <TouchableOpacity
+              onPress={onClose}
+              style={{
+                width: 32, height: 32, borderRadius: 16,
+                backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#64748b' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
           {paymentState === 'IDLE' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>

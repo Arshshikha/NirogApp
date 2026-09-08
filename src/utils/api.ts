@@ -1,8 +1,13 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { getTokenInMemory } from './tokenHolder';
 
 // Resolve backend API base address depending on platform
 const getBaseUrl = () => {
+  // Use production server in release/production builds
+  if (!__DEV__) {
+    return 'https://api.nirog.life/api';
+  }
   if (Platform.OS === 'web') {
     return 'http://localhost:5000/api';
   }
@@ -17,8 +22,6 @@ export const API_BASE_URL = getBaseUrl();
 interface FetchOptions extends RequestInit {
   bodyData?: any;
 }
-
-import { getTokenInMemory } from './tokenHolder';
 
 const request = async (path: string, options: FetchOptions = {}) => {
   const url = `${API_BASE_URL}${path}`;

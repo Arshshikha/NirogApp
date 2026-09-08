@@ -9,6 +9,7 @@ export interface UserSession {
   name: string;
   email: string;
   role: 'Patient' | 'Doctor' | 'Student' | 'Provider';
+  avatar?: string;
   documentName?: string;
   age?: string;
   bloodGroup?: string;
@@ -310,4 +311,54 @@ export const resetPassword = async (email: string, role: UserSession['role'], ne
     console.error('API reset password error:', e);
     return false;
   }
+};
+
+export const updateProfile = async (updates: Partial<UserSession>): Promise<UserSession> => {
+  if (!activeSession) {
+    throw new Error('No active user session to update.');
+  }
+
+  const updatedSession: UserSession = {
+    ...activeSession,
+    ...updates,
+  };
+
+  activeSession = updatedSession;
+
+  // Update in registered accounts list
+  const idx = registeredAccounts.findIndex(acc => acc.email.toLowerCase() === updatedSession.email.toLowerCase() && acc.role === updatedSession.role);
+  if (idx !== -1) {
+    registeredAccounts[idx] = {
+      ...registeredAccounts[idx],
+      ...updates,
+    };
+  } else {
+    registeredAccounts.push({ ...updatedSession });
+  }
+
+  // Persist to storage
+  await setItem(SESSION_STORAGE_KEY, JSON.stringify(activeSession));
+  await setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(registeredAccounts));
+
+  // Try syncing with backend API if token is present
+  try {
+    if (activeSession.token) {
+      await apiPost('/auth/update-profile', {
+        name: updatedSession.name,
+        email: updatedSession.email,
+        phone: updatedSession.phone,
+        address: updatedSession.address,
+        age: updatedSession.age,
+        bloodGroup: updatedSession.bloodGroup,
+        avatar: updatedSession.avatar,
+        collegeName: updatedSession.collegeName,
+        experience: updatedSession.experience,
+      });
+    }
+  } catch (err) {
+    console.log('Backend profile sync non-blocking warning:', err);
+  }
+
+  listeners.forEach(fn => fn());
+  return updatedSession;
 };

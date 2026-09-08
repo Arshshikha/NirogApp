@@ -41,3 +41,17 @@ example
 # generated native folders
 /ios
 /android
+
+# media and temporary files
+*.mp4
+temp_*.py
+debug_ops.js
+dump_views.js
+extract_status.js
+find_backup.js
+find_history.js
+inspect_truncation.js
+list_all_history.js
+list_views.js
+reconstruct.js
+testers_emails.csv

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getSession } from '../../utils/authStore';
@@ -126,13 +126,13 @@ export default function ProviderRequestsScreen() {
         shadowColor: '#0ea5e9', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3, marginTop:-36,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 10, backgroundColor: '#0ea5e9',
-            alignItems: 'center', justifyContent: 'center', marginRight: 10,
-            shadowColor: '#0ea5e9', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,marginTop:28,
-          }}>
-            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '900' }}>P</Text>
-          </View>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={{
+              width: 36, height: 36, borderRadius: 10, marginRight: 10, marginTop: 28
+            }}
+            resizeMode="contain"
+          />
           <View>
             <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 15, letterSpacing: -0.3 ,marginTop:28}}>
               SERVICE <Text style={{ color: '#10b981', fontWeight: '700' }}>REQUESTS</Text>

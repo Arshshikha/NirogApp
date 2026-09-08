@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
   },
   cardPriceLarge: {
     fontSize: 20,
-    fontWeight: '950',
+    fontWeight: '900',
     color: '#0f172a',
   },
   cardBody: {

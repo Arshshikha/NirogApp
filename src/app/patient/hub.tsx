@@ -207,20 +207,16 @@ export default function PatientHubScreen() {
         elevation: 3,marginTop:-36,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 10,
-            backgroundColor: '#0ea5e9',
-            alignItems: 'center', justifyContent: 'center', marginRight: 10,
-            shadowColor: '#0ea5e9', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,marginTop:28,
-          }}>
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '900' }}>W</Text>
-          </View>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={{ width: 38, height: 38, resizeMode: 'contain', marginRight: 10, marginTop: 28 }}
+          />
           <View>
             <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 15, letterSpacing: -0.3 ,marginTop:28,}}>
               WELLNESS <Text style={{ color: '#10b981', fontWeight: '700' }}>HUB</Text>
             </Text>
             <Text style={{ color: '#94a3b8', fontSize: 9, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' }}>
-              Public Health Education
+              Articles & Health Tips
             </Text>
           </View>
         </View>
@@ -259,29 +255,43 @@ export default function PatientHubScreen() {
       </View>
 
       {/* Filter Pills */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 8 }}>
-        {(['All', 'Blog', 'Special Case'] as const).map((filter) => {
-          const isActive = activeFilter === filter;
-          return (
-            <TouchableOpacity
-              key={filter}
-              onPress={() => {
-                setActiveFilter(filter);
-                setSearchQuery('');
-              }}
-              style={{
-                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-                backgroundColor: isActive ? '#e0f2fe' : '#ffffff',
-                borderColor: isActive ? '#38bdf8' : '#e2e8f0',
-                shadowColor: '#0ea5e9', shadowOpacity: isActive ? 0.1 : 0.04, shadowRadius: 4, elevation: isActive ? 2 : 1,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: isActive ? '#0369a1' : '#64748b' }}>
-                {filter === 'All' ? 'All Guides' : filter === 'Blog' ? 'Wellness Blogs' : 'Health Cases'}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={{ paddingVertical: 4 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+          canCancelContentTouches={true}
+          scrollEventThrottle={16}
+          directionalLockEnabled={true}
+          contentContainerStyle={{ paddingLeft: 16, paddingRight: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center' }}
+        >
+          {(['All', 'Blog', 'Special Case'] as const).map((filter) => {
+            const isActive = activeFilter === filter;
+            return (
+              <TouchableOpacity
+                key={filter}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setActiveFilter(filter);
+                  setSearchQuery('');
+                }}
+                style={{
+                  flexShrink: 0,
+                  marginRight: 8,
+                  paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20, borderWidth: 1.2,
+                  backgroundColor: isActive ? '#e0f2fe' : '#ffffff',
+                  borderColor: isActive ? '#0284c7' : '#e2e8f0',
+                  shadowColor: '#0ea5e9', shadowOpacity: isActive ? 0.12 : 0.04, shadowRadius: 4, elevation: isActive ? 2 : 1,
+                }}
+              >
+                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: isActive ? '#0284c7' : '#64748b' }}>
+                  {filter === 'All' ? 'All Guides' : filter === 'Blog' ? 'Wellness Blogs' : 'Health Cases'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
