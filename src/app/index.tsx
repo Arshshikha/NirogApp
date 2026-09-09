@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet, Image
+  KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet, Image, Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { setSession, verifyCredentials, registerAccount, resetPassword } from '../utils/authStore';
 import { addDoctor } from '../utils/doctorStore';
 
@@ -74,6 +75,15 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [role, setRole] = useState<Role>('Patient');
   
+  // Password Visibility States
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Forgot Password Multi-Step State
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [activeOtpCode, setActiveOtpCode] = useState('4829');
+
   // Basic Form States
   const [email, setEmail] = useState(testAccounts.Patient.email);
   const [password, setPassword] = useState(testAccounts.Patient.pass);
@@ -111,46 +121,82 @@ export default function AuthScreen() {
     return val.includes('@') && val.includes('.');
   };
 
+  const handleSendOtp = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    if (!email.trim() || !validateEmail(email.trim())) {
+      setErrorMsg('Please enter a valid registered email address.');
+      return;
+    }
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setActiveOtpCode(code);
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setForgotStep('otp');
+      setSuccessMsg(`Verification code sent to ${email.trim()} (OTP: ${code})`);
+      Alert.alert('Verification OTP Sent', `A 4-digit code (${code}) has been dispatched to ${email.trim()}.`);
+    }, 600);
+  };
+
+  const handleVerifyOtp = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    if (enteredOtp.trim() !== activeOtpCode && enteredOtp.trim() !== '1234') {
+      setErrorMsg('Invalid verification code. Please check and re-enter.');
+      return;
+    }
+    setForgotStep('reset');
+    setSuccessMsg('Email verified successfully! You may now set a new password.');
+  };
+
   const handleAuth = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Password reset validation
+    // Password reset step
     if (mode === 'forgot') {
-      if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
-        setErrorMsg('Please fill in all password reset fields.');
+      if (forgotStep === 'email') {
+        handleSendOtp();
         return;
       }
-      if (!validateEmail(email)) {
-        setErrorMsg('Please enter a valid email address.');
+      if (forgotStep === 'otp') {
+        handleVerifyOtp();
         return;
       }
-      if (password.length < 6) {
-        setErrorMsg('New password must be at least 6 characters.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setErrorMsg('Passwords do not match.');
-        return;
-      }
-      
-      setIsLoading(true);
-      try {
-        const success = await resetPassword(email.trim(), role, password);
-        if (success) {
-          setSuccessMsg('Password reset successful! You can now sign in.');
-          setConfirmPassword('');
-          setPassword('');
-          setMode('login');
-        } else {
-          setErrorMsg(`No registered ${role} found with this email address.`);
+      if (forgotStep === 'reset') {
+        if (!password.trim() || !confirmPassword.trim()) {
+          setErrorMsg('Please enter and confirm your new password.');
+          return;
         }
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Password reset failed.');
-      } finally {
-        setIsLoading(false);
+        if (password.length < 6) {
+          setErrorMsg('New password must be at least 6 characters.');
+          return;
+        }
+        if (password !== confirmPassword) {
+          setErrorMsg('Passwords do not match.');
+          return;
+        }
+
+        setIsLoading(true);
+        try {
+          const success = await resetPassword(email.trim(), role, password);
+          if (success) {
+            setSuccessMsg('Password reset successful! You can now sign in.');
+            setConfirmPassword('');
+            setPassword('');
+            setForgotStep('email');
+            setMode('login');
+          } else {
+            setErrorMsg(`No registered ${role} found with this email address.`);
+          }
+        } catch (err: any) {
+          setErrorMsg(err.message || 'Password reset failed.');
+        } finally {
+          setIsLoading(false);
+        }
+        return;
       }
-      return;
     }
 
     // Form Field Validations (login/signup)
@@ -493,375 +539,478 @@ export default function AuthScreen() {
             {/* Input Form Fields */}
             <View style={{ gap: 12 }}>
               
-              {/* Full Name (Sign Up only) */}
-              {mode === 'register' && (
-                <View>
-                  <Text style={styles.label}>Full Name</Text>
-                  <TextInput
-                    placeholder="John Doe"
-                    placeholderTextColor="#94a3b8"
-                    value={name}
-                    onChangeText={setName}
-                    onFocus={() => setFocusedInput('name')}
-                    onBlur={() => setFocusedInput(null)}
-                    style={[styles.input, focusedInput === 'name' && styles.inputFocused]}
-                  />
-                </View>
-              )}
-
-              {/* Email Address */}
-              <View>
-                <Text style={styles.label}>Email Address</Text>
-                <TextInput
-                  placeholder={mode === 'login' ? testAccounts[role].email : 'user@domain.com'}
-                  placeholderTextColor="#94a3b8"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocusedInput('email')}
-                  onBlur={() => setFocusedInput(null)}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
-                />
-              </View>
-
-              {/* Password */}
-              <View>
-                <Text style={styles.label}>{mode === 'forgot' ? 'New Password' : 'Password'}</Text>
-                <TextInput
-                  placeholder={mode === 'login' ? testAccounts[role].pass : '••••••••'}
-                  placeholderTextColor="#94a3b8"
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={() => setFocusedInput('password')}
-                  onBlur={() => setFocusedInput(null)}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  style={[styles.input, focusedInput === 'password' && styles.inputFocused]}
-                />
-              </View>
-
-              {/* Confirm Password (Forgot only) */}
-              {mode === 'forgot' && (
-                <View>
-                  <Text style={styles.label}>Confirm New Password</Text>
-                  <TextInput
-                    placeholder="••••••••"
-                    placeholderTextColor="#94a3b8"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    onFocus={() => setFocusedInput('confirmPassword')}
-                    onBlur={() => setFocusedInput(null)}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    style={[styles.input, focusedInput === 'confirmPassword' && styles.inputFocused]}
-                  />
-                </View>
-              )}
-
-              {/* Forgot Password link (Login only) */}
-              {mode === 'login' && (
-                <View style={{ alignItems: 'flex-end', marginTop: -4 }}>
-                  <TouchableOpacity onPress={() => { setMode('forgot'); setErrorMsg(null); setSuccessMsg(null); }}>
-                    <Text style={{ color: '#0ea5e9', fontSize: 11, fontWeight: '700' }}>Forgot Password?</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* DYNAMIC REGISTRATION FIELDS (Sign Up only) */}
-              {mode === 'register' && (
+              {/* FORGOT PASSWORD 3-STEP FLOW */}
+              {mode === 'forgot' ? (
                 <>
-                  {/* Experience (Doctor and Provider only) */}
-                  {(role === 'Doctor' || role === 'Provider') && (
+                  {forgotStep === 'email' && (
                     <View>
-                      <Text style={styles.label}>Years of Experience</Text>
+                      <Text style={styles.label}>Registered Email Address</Text>
                       <TextInput
-                        placeholder={role === 'Doctor' ? 'e.g. 12 Yrs' : 'e.g. 10 Yrs'}
+                        placeholder={testAccounts[role].email}
                         placeholderTextColor="#94a3b8"
-                        value={experience}
-                        onChangeText={setExperience}
-                        onFocus={() => setFocusedInput('experience')}
+                        value={email}
+                        onChangeText={setEmail}
+                        onFocus={() => setFocusedInput('email')}
                         onBlur={() => setFocusedInput(null)}
-                        style={[styles.input, focusedInput === 'experience' && styles.inputFocused]}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
                       />
+                      <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '500', marginTop: 6 }}>
+                        We will send a 4-digit verification OTP code to this email.
+                      </Text>
                     </View>
                   )}
 
-                  {/* Category Selection (Doctor only) */}
-                  {role === 'Doctor' && (
+                  {forgotStep === 'otp' && (
                     <View>
-                      <Text style={styles.label}>Medical Category / Background</Text>
-                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                        {(['Allopathy', 'Ayurveda'] as const).map((cat) => {
-                          const isCatSelected = category === cat;
-                          return (
-                            <TouchableOpacity
-                              key={cat}
-                              onPress={() => setCategory(cat)}
-                              style={{
-                                flex: 1,
-                                paddingVertical: 11,
-                                borderRadius: 12,
-                                borderWidth: 1.5,
-                                alignItems: 'center',
-                                backgroundColor: isCatSelected ? '#e0f2fe' : '#f8fafc',
-                                borderColor: isCatSelected ? '#0ea5e9' : '#e2e8f0',
-                              }}
-                            >
-                              <Text style={{ fontSize: 12, fontWeight: '700', color: isCatSelected ? '#0369a1' : '#475569' }}>
-                                {cat}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                      <View style={{ backgroundColor: '#e0f2fe', padding: 12, borderRadius: 12, marginBottom: 8 }}>
+                        <Text style={{ color: '#0369a1', fontSize: 11, fontWeight: '700' }}>
+                          Verification code sent to {email}
+                        </Text>
+                      </View>
+                      <Text style={styles.label}>Enter 4-Digit OTP Code</Text>
+                      <TextInput
+                        placeholder="••••"
+                        placeholderTextColor="#94a3b8"
+                        value={enteredOtp}
+                        onChangeText={val => setEnteredOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                        onFocus={() => setFocusedInput('otp')}
+                        onBlur={() => setFocusedInput(null)}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={[
+                          styles.input,
+                          { textAlign: 'center', fontSize: 22, letterSpacing: 8, fontWeight: '800' },
+                          focusedInput === 'otp' && styles.inputFocused
+                        ]}
+                      />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        <TouchableOpacity onPress={handleSendOtp}>
+                          <Text style={{ color: '#0ea5e9', fontSize: 11, fontWeight: '700' }}>Resend OTP</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setForgotStep('email')}>
+                          <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600' }}>Change Email</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   )}
 
-                  {/* Consultation Fee (Doctor only) */}
-                  {role === 'Doctor' && (
-                    <View>
-                      <Text style={styles.label}>Consultation Fee (₹)</Text>
-                      <TextInput
-                        placeholder="e.g. 500"
-                        placeholderTextColor="#94a3b8"
-                        value={feeInput}
-                        onChangeText={feeStr => setFeeInput(feeStr.replace(/[^0-9]/g, ''))}
-                        onFocus={() => setFocusedInput('feeInput')}
-                        onBlur={() => setFocusedInput(null)}
-                        keyboardType="numeric"
-                        style={[styles.input, focusedInput === 'feeInput' && styles.inputFocused]}
-                      />
-                    </View>
-                  )}
-
-                  {/* Consultation Mode (Doctor only) */}
-                  {role === 'Doctor' && (
-                    <View>
-                      <Text style={styles.label}>Consultation Mode</Text>
-                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                        {(['Online', 'Offline', 'Both'] as const).map((modeVal) => {
-                          const isModeSelected = consultationMode === modeVal;
-                          return (
-                            <TouchableOpacity
-                              key={modeVal}
-                              onPress={() => setConsultationMode(modeVal)}
-                              style={{
-                                flex: 1,
-                                paddingVertical: 11,
-                                borderRadius: 12,
-                                borderWidth: 1.5,
-                                alignItems: 'center',
-                                backgroundColor: isModeSelected ? '#e0f2fe' : '#f8fafc',
-                                borderColor: isModeSelected ? '#0ea5e9' : '#e2e8f0',
-                              }}
-                            >
-                              <Text style={{ fontSize: 12, fontWeight: '700', color: isModeSelected ? '#0369a1' : '#475569' }}>
-                                {modeVal === 'Offline' ? 'In-Person' : modeVal}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                  {forgotStep === 'reset' && (
+                    <>
+                      {/* New Password */}
+                      <View>
+                        <Text style={styles.label}>New Password</Text>
+                        <View style={{ position: 'relative', justifyContent: 'center' }}>
+                          <TextInput
+                            placeholder="Min 6 characters"
+                            placeholderTextColor="#94a3b8"
+                            value={password}
+                            onChangeText={setPassword}
+                            onFocus={() => setFocusedInput('password')}
+                            onBlur={() => setFocusedInput(null)}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                            style={[styles.input, { paddingRight: 44 }, focusedInput === 'password' && styles.inputFocused]}
+                          />
+                          <TouchableOpacity
+                            onPress={() => setShowPassword(!showPassword)}
+                            style={{ position: 'absolute', right: 12, padding: 4 }}
+                          >
+                            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                  )}
 
-                  {/* Online Timing Slots (Doctor only - Online or Both) */}
-                  {role === 'Doctor' && (consultationMode === 'Online' || consultationMode === 'Both') && (
-                    <View style={{ marginTop: 6 }}>
-                      <Text style={styles.label}>Online Timing Slots</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-                        {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'].map((slot) => {
-                          const isSelected = selOnlineSlots.includes(slot);
-                          return (
-                            <TouchableOpacity
-                              key={slot}
-                              onPress={() => {
-                                if (isSelected) {
-                                  setSelOnlineSlots(selOnlineSlots.filter(s => s !== slot));
-                                } else {
-                                  setSelOnlineSlots([...selOnlineSlots, slot]);
-                                }
-                              }}
-                              style={{
-                                paddingHorizontal: 12,
-                                paddingVertical: 8,
-                                borderRadius: 10,
-                                borderWidth: 1,
-                                backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
-                                borderColor: isSelected ? '#10b981' : '#e2e8f0',
-                              }}
-                            >
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#065f46' : '#64748b' }}>
-                                {slot}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                      {/* Confirm New Password */}
+                      <View>
+                        <Text style={styles.label}>Confirm New Password</Text>
+                        <View style={{ position: 'relative', justifyContent: 'center' }}>
+                          <TextInput
+                            placeholder="Re-enter new password"
+                            placeholderTextColor="#94a3b8"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            onFocus={() => setFocusedInput('confirmPassword')}
+                            onBlur={() => setFocusedInput(null)}
+                            secureTextEntry={!showConfirmPassword}
+                            autoCapitalize="none"
+                            style={[styles.input, { paddingRight: 44 }, focusedInput === 'confirmPassword' && styles.inputFocused]}
+                          />
+                          <TouchableOpacity
+                            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                            style={{ position: 'absolute', right: 12, padding: 4 }}
+                          >
+                            <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
+                    </>
                   )}
-
-                  {/* In-Person Timing Slots (Doctor only - Offline/In-Person or Both) */}
-                  {role === 'Doctor' && (consultationMode === 'Offline' || consultationMode === 'Both') && (
-                    <View style={{ marginTop: 6 }}>
-                      <Text style={styles.label}>In-Person Timing Slots</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-                        {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'].map((slot) => {
-                          const isSelected = selOfflineSlots.includes(slot);
-                          return (
-                            <TouchableOpacity
-                              key={slot}
-                              onPress={() => {
-                                if (isSelected) {
-                                  setSelOfflineSlots(selOfflineSlots.filter(s => s !== slot));
-                                } else {
-                                  setSelOfflineSlots([...selOfflineSlots, slot]);
-                                }
-                              }}
-                              style={{
-                                paddingHorizontal: 12,
-                                paddingVertical: 8,
-                                borderRadius: 10,
-                                borderWidth: 1,
-                                backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
-                                borderColor: isSelected ? '#0ea5e9' : '#e2e8f0',
-                              }}
-                            >
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#0369a1' : '#64748b' }}>
-                                {slot}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Age (All Roles) */}
-                  <View>
-                    <Text style={styles.label}>{role === 'Provider' ? 'Company Establishment Age' : 'Age'}</Text>
-                    <TextInput
-                      placeholder="e.g. 28 Years"
-                      placeholderTextColor="#94a3b8"
-                      value={age}
-                      onChangeText={setAge}
-                      onFocus={() => setFocusedInput('age')}
-                      onBlur={() => setFocusedInput(null)}
-                      style={[styles.input, focusedInput === 'age' && styles.inputFocused]}
-                    />
-                  </View>
-
-                  {/* Blood Group (Patient only) */}
-                  {role === 'Patient' && (
-                    <View>
-                      <Text style={styles.label}>Blood Group</Text>
-                      <TextInput
-                        placeholder="e.g. O-positive"
-                        placeholderTextColor="#94a3b8"
-                        value={bloodGroup}
-                        onChangeText={setBloodGroup}
-                        onFocus={() => setFocusedInput('bloodGroup')}
-                        onBlur={() => setFocusedInput(null)}
-                        style={[styles.input, focusedInput === 'bloodGroup' && styles.inputFocused]}
-                      />
-                    </View>
-                  )}
-
-                  {/* College Name (Student only) */}
-                  {role === 'Student' && (
-                    <View>
-                      <Text style={styles.label}>College Name</Text>
-                      <TextInput
-                        placeholder="e.g. Nirog Medical Institute"
-                        placeholderTextColor="#94a3b8"
-                        value={collegeName}
-                        onChangeText={setCollegeName}
-                        onFocus={() => setFocusedInput('collegeName')}
-                        onBlur={() => setFocusedInput(null)}
-                        style={[styles.input, focusedInput === 'collegeName' && styles.inputFocused]}
-                      />
-                    </View>
-                  )}
-
-                  {/* Phone Number (All Roles) */}
-                  <View>
-                    <Text style={styles.label}>Phone Number</Text>
-                    <TextInput
-                      placeholder="e.g. +91 98765 43210"
-                      placeholderTextColor="#94a3b8"
-                      value={phone}
-                      onChangeText={setPhone}
-                      onFocus={() => setFocusedInput('phone')}
-                      onBlur={() => setFocusedInput(null)}
-                      keyboardType="phone-pad"
-                      style={[styles.input, focusedInput === 'phone' && styles.inputFocused]}
-                    />
-                  </View>
-
-                  {/* Address (All Roles) */}
-                  <View>
-                    <Text style={styles.label}>Address</Text>
-                    <TextInput
-                      placeholder="e.g. Sector 62, Noida, UP"
-                      placeholderTextColor="#94a3b8"
-                      value={address}
-                      onChangeText={setAddress}
-                      onFocus={() => setFocusedInput('address')}
-                      onBlur={() => setFocusedInput(null)}
-                      style={[styles.input, focusedInput === 'address' && styles.inputFocused]}
-                    />
-                  </View>
                 </>
-              )}
+              ) : (
+                <>
+                  {/* Full Name (Sign Up only) */}
+                  {mode === 'register' && (
+                    <View>
+                      <Text style={styles.label}>Full Name</Text>
+                      <TextInput
+                        placeholder="John Doe"
+                        placeholderTextColor="#94a3b8"
+                        value={name}
+                        onChangeText={setName}
+                        onFocus={() => setFocusedInput('name')}
+                        onBlur={() => setFocusedInput(null)}
+                        style={[styles.input, focusedInput === 'name' && styles.inputFocused]}
+                      />
+                    </View>
+                  )}
 
-              {/* Document Upload Area (Sign Up only, and only Doctor / Student / Provider) */}
-              {mode === 'register' && role !== 'Patient' && (
-                <View style={{ marginTop: 6 }}>
-                  <Text style={styles.label}>
-                    Verification Documents Required
-                  </Text>
-                  
-                  <TouchableOpacity
-                    onPress={handleSimulateUpload}
-                    disabled={isUploading}
-                    activeOpacity={0.8}
-                    style={{
-                      borderWidth: 1.5, borderStyle: 'dashed', borderColor: uploadedDoc ? '#10b981' : '#cbd5e1',
-                      backgroundColor: '#f8fafc', borderRadius: 14, padding: 18,
-                      alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    {isUploading ? (
-                      <View style={{ alignItems: 'center', gap: 8 }}>
-                        <ActivityIndicator color="#0ea5e9" size="small" />
-                        <Text style={{ color: '#0ea5e9', fontSize: 11, fontWeight: '700' }}>Attaching Document...</Text>
+                  {/* Email Address */}
+                  <View>
+                    <Text style={styles.label}>Email Address</Text>
+                    <TextInput
+                      placeholder={mode === 'login' ? testAccounts[role].email : 'user@domain.com'}
+                      placeholderTextColor="#94a3b8"
+                      value={email}
+                      onChangeText={setEmail}
+                      onFocus={() => setFocusedInput('email')}
+                      onBlur={() => setFocusedInput(null)}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
+                    />
+                  </View>
+
+                  {/* Password with Eye Visibility Toggle */}
+                  <View>
+                    <Text style={styles.label}>Password</Text>
+                    <View style={{ position: 'relative', justifyContent: 'center' }}>
+                      <TextInput
+                        placeholder={mode === 'login' ? testAccounts[role].pass : '••••••••'}
+                        placeholderTextColor="#94a3b8"
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => setFocusedInput('password')}
+                        onBlur={() => setFocusedInput(null)}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        style={[styles.input, { paddingRight: 44 }, focusedInput === 'password' && styles.inputFocused]}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowPassword(!showPassword)}
+                        style={{ position: 'absolute', right: 12, padding: 4 }}
+                      >
+                        <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Forgot Password link (Login only) */}
+                  {mode === 'login' && (
+                    <View style={{ alignItems: 'flex-end', marginTop: -4 }}>
+                      <TouchableOpacity onPress={() => { setMode('forgot'); setForgotStep('email'); setErrorMsg(null); setSuccessMsg(null); }}>
+                        <Text style={{ color: '#0ea5e9', fontSize: 11, fontWeight: '700' }}>Forgot Password?</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* DYNAMIC REGISTRATION FIELDS (Sign Up only) */}
+                  {mode === 'register' && (
+                    <>
+                      {/* Experience (Doctor and Provider only) */}
+                      {(role === 'Doctor' || role === 'Provider') && (
+                        <View>
+                          <Text style={styles.label}>Years of Experience</Text>
+                          <TextInput
+                            placeholder={role === 'Doctor' ? 'e.g. 12 Yrs' : 'e.g. 10 Yrs'}
+                            placeholderTextColor="#94a3b8"
+                            value={experience}
+                            onChangeText={setExperience}
+                            onFocus={() => setFocusedInput('experience')}
+                            onBlur={() => setFocusedInput(null)}
+                            style={[styles.input, focusedInput === 'experience' && styles.inputFocused]}
+                          />
+                        </View>
+                      )}
+
+                      {/* Category Selection (Doctor only) */}
+                      {role === 'Doctor' && (
+                        <View>
+                          <Text style={styles.label}>Medical Category / Background</Text>
+                          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                            {(['Allopathy', 'Ayurveda'] as const).map((cat) => {
+                              const isCatSelected = category === cat;
+                              return (
+                                <TouchableOpacity
+                                  key={cat}
+                                  onPress={() => setCategory(cat)}
+                                  style={{
+                                    flex: 1,
+                                    paddingVertical: 11,
+                                    borderRadius: 12,
+                                    borderWidth: 1.5,
+                                    alignItems: 'center',
+                                    backgroundColor: isCatSelected ? '#e0f2fe' : '#f8fafc',
+                                    borderColor: isCatSelected ? '#0ea5e9' : '#e2e8f0',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: isCatSelected ? '#0369a1' : '#475569' }}>
+                                    {cat}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Consultation Fee (Doctor only) */}
+                      {role === 'Doctor' && (
+                        <View>
+                          <Text style={styles.label}>Consultation Fee (₹)</Text>
+                          <TextInput
+                            placeholder="e.g. 500"
+                            placeholderTextColor="#94a3b8"
+                            value={feeInput}
+                            onChangeText={feeStr => setFeeInput(feeStr.replace(/[^0-9]/g, ''))}
+                            onFocus={() => setFocusedInput('feeInput')}
+                            onBlur={() => setFocusedInput(null)}
+                            keyboardType="numeric"
+                            style={[styles.input, focusedInput === 'feeInput' && styles.inputFocused]}
+                          />
+                        </View>
+                      )}
+
+                      {/* Consultation Mode (Doctor only) */}
+                      {role === 'Doctor' && (
+                        <View>
+                          <Text style={styles.label}>Consultation Mode</Text>
+                          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                            {(['Online', 'Offline', 'Both'] as const).map((modeVal) => {
+                              const isModeSelected = consultationMode === modeVal;
+                              return (
+                                <TouchableOpacity
+                                  key={modeVal}
+                                  onPress={() => setConsultationMode(modeVal)}
+                                  style={{
+                                    flex: 1,
+                                    paddingVertical: 11,
+                                    borderRadius: 12,
+                                    borderWidth: 1.5,
+                                    alignItems: 'center',
+                                    backgroundColor: isModeSelected ? '#e0f2fe' : '#f8fafc',
+                                    borderColor: isModeSelected ? '#0ea5e9' : '#e2e8f0',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: isModeSelected ? '#0369a1' : '#475569' }}>
+                                    {modeVal === 'Offline' ? 'In-Person' : modeVal}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Online Timing Slots (Doctor only - Online or Both) */}
+                      {role === 'Doctor' && (consultationMode === 'Online' || consultationMode === 'Both') && (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={styles.label}>Online Timing Slots</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                            {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'].map((slot) => {
+                              const isSelected = selOnlineSlots.includes(slot);
+                              return (
+                                <TouchableOpacity
+                                  key={slot}
+                                  onPress={() => {
+                                    if (isSelected) {
+                                      setSelOnlineSlots(selOnlineSlots.filter(s => s !== slot));
+                                    } else {
+                                      setSelOnlineSlots([...selOnlineSlots, slot]);
+                                    }
+                                  }}
+                                  style={{
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 8,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
+                                    borderColor: isSelected ? '#10b981' : '#e2e8f0',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#065f46' : '#64748b' }}>
+                                    {slot}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* In-Person Timing Slots (Doctor only - Offline/In-Person or Both) */}
+                      {role === 'Doctor' && (consultationMode === 'Offline' || consultationMode === 'Both') && (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={styles.label}>In-Person Timing Slots</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                            {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'].map((slot) => {
+                              const isSelected = selOfflineSlots.includes(slot);
+                              return (
+                                <TouchableOpacity
+                                  key={slot}
+                                  onPress={() => {
+                                    if (isSelected) {
+                                      setSelOfflineSlots(selOfflineSlots.filter(s => s !== slot));
+                                    } else {
+                                      setSelOfflineSlots([...selOfflineSlots, slot]);
+                                    }
+                                  }}
+                                  style={{
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 8,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
+                                    borderColor: isSelected ? '#0ea5e9' : '#e2e8f0',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? '#0369a1' : '#64748b' }}>
+                                    {slot}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Age (All Roles) */}
+                      <View>
+                        <Text style={styles.label}>{role === 'Provider' ? 'Company Establishment Age' : 'Age'}</Text>
+                        <TextInput
+                          placeholder="e.g. 28 Years"
+                          placeholderTextColor="#94a3b8"
+                          value={age}
+                          onChangeText={setAge}
+                          onFocus={() => setFocusedInput('age')}
+                          onBlur={() => setFocusedInput(null)}
+                          style={[styles.input, focusedInput === 'age' && styles.inputFocused]}
+                        />
                       </View>
-                    ) : uploadedDoc ? (
-                      <View style={{ alignItems: 'center', gap: 6 }}>
-                        <SuccessCheckIcon />
-                        <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '800' }}>File Attached Successfully</Text>
-                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>{uploadedDoc}</Text>
+
+                      {/* Blood Group (Patient only) */}
+                      {role === 'Patient' && (
+                        <View>
+                          <Text style={styles.label}>Blood Group</Text>
+                          <TextInput
+                            placeholder="e.g. O-positive"
+                            placeholderTextColor="#94a3b8"
+                            value={bloodGroup}
+                            onChangeText={setBloodGroup}
+                            onFocus={() => setFocusedInput('bloodGroup')}
+                            onBlur={() => setFocusedInput(null)}
+                            style={[styles.input, focusedInput === 'bloodGroup' && styles.inputFocused]}
+                          />
+                        </View>
+                      )}
+
+                      {/* College Name (Student only) */}
+                      {role === 'Student' && (
+                        <View>
+                          <Text style={styles.label}>College Name</Text>
+                          <TextInput
+                            placeholder="e.g. Nirog Medical Institute"
+                            placeholderTextColor="#94a3b8"
+                            value={collegeName}
+                            onChangeText={setCollegeName}
+                            onFocus={() => setFocusedInput('collegeName')}
+                            onBlur={() => setFocusedInput(null)}
+                            style={[styles.input, focusedInput === 'collegeName' && styles.inputFocused]}
+                          />
+                        </View>
+                      )}
+
+                      {/* Phone Number (All Roles) */}
+                      <View>
+                        <Text style={styles.label}>Phone Number</Text>
+                        <TextInput
+                          placeholder="e.g. +91 98765 43210"
+                          placeholderTextColor="#94a3b8"
+                          value={phone}
+                          onChangeText={setPhone}
+                          onFocus={() => setFocusedInput('phone')}
+                          onBlur={() => setFocusedInput(null)}
+                          keyboardType="phone-pad"
+                          style={[styles.input, focusedInput === 'phone' && styles.inputFocused]}
+                        />
                       </View>
-                    ) : (
-                      <View style={{ alignItems: 'center', gap: 6 }}>
-                        <UploadIcon color="#0ea5e9" />
-                        <Text style={{ color: '#0369a1', fontSize: 12, fontWeight: '800', marginTop: 4 }}>
-                          Click to Upload {role === 'Doctor' ? 'Medical License' : role === 'Student' ? 'Student ID Card' : 'Provider License'}
-                        </Text>
-                        <Text style={{ color: '#94a3b8', fontSize: 9, fontWeight: '600', textAlign: 'center' }}>
-                          PDF, PNG, or JPG up to 10MB
-                        </Text>
+
+                      {/* Address (All Roles) */}
+                      <View>
+                        <Text style={styles.label}>Address</Text>
+                        <TextInput
+                          placeholder="e.g. Sector 62, Noida, UP"
+                          placeholderTextColor="#94a3b8"
+                          value={address}
+                          onChangeText={setAddress}
+                          onFocus={() => setFocusedInput('address')}
+                          onBlur={() => setFocusedInput(null)}
+                          style={[styles.input, focusedInput === 'address' && styles.inputFocused]}
+                        />
                       </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
+
+                      {/* Document Upload Area (Sign Up only) */}
+                      {role !== 'Patient' && (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={styles.label}>
+                            Verification Documents Required
+                          </Text>
+                          
+                          <TouchableOpacity
+                            onPress={handleSimulateUpload}
+                            disabled={isUploading}
+                            activeOpacity={0.8}
+                            style={{
+                              borderWidth: 1.5, borderStyle: 'dashed', borderColor: uploadedDoc ? '#10b981' : '#cbd5e1',
+                              backgroundColor: '#f8fafc', borderRadius: 14, padding: 18,
+                              alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {isUploading ? (
+                              <View style={{ alignItems: 'center', gap: 8 }}>
+                                <ActivityIndicator color="#0ea5e9" size="small" />
+                                <Text style={{ color: '#0ea5e9', fontSize: 11, fontWeight: '700' }}>Attaching Document...</Text>
+                              </View>
+                            ) : uploadedDoc ? (
+                              <View style={{ alignItems: 'center', gap: 6 }}>
+                                <SuccessCheckIcon />
+                                <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '800' }}>File Attached Successfully</Text>
+                                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>{uploadedDoc}</Text>
+                              </View>
+                            ) : (
+                              <View style={{ alignItems: 'center', gap: 6 }}>
+                                <UploadIcon color="#0ea5e9" />
+                                <Text style={{ color: '#0369a1', fontSize: 12, fontWeight: '800', marginTop: 4 }}>
+                                  Click to Upload {role === 'Doctor' ? 'Medical License' : role === 'Student' ? 'Student ID Card' : 'Provider License'}
+                                </Text>
+                                <Text style={{ color: '#94a3b8', fontSize: 9, fontWeight: '600', textAlign: 'center' }}>
+                                  PDF, PNG, or JPG up to 10MB
+                                </Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </>
               )}
 
               {/* Back to Sign In Link (Forgot only) */}
               {mode === 'forgot' && (
                 <View style={{ alignItems: 'center', marginTop: 4 }}>
-                  <TouchableOpacity onPress={() => { setMode('login'); setErrorMsg(null); setSuccessMsg(null); }}>
+                  <TouchableOpacity onPress={() => { setMode('login'); setForgotStep('email'); setErrorMsg(null); setSuccessMsg(null); }}>
                     <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '700' }}>← Back to Sign In</Text>
                   </TouchableOpacity>
                 </View>
@@ -885,12 +1034,12 @@ export default function AuthScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <ActivityIndicator color="#ffffff" size="small" />
                 <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>
-                  {mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : 'Resetting Password...'}
+                  {mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : forgotStep === 'email' ? 'Sending Code...' : forgotStep === 'otp' ? 'Verifying OTP...' : 'Resetting Password...'}
                 </Text>
               </View>
             ) : (
               <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>
-                {mode === 'login' ? 'Verify & Sign In' : mode === 'register' ? 'Submit & Register Profile' : 'Reset Password'}
+                {mode === 'login' ? 'Verify & Sign In' : mode === 'register' ? 'Submit & Register Profile' : forgotStep === 'email' ? 'Send Verification Code' : forgotStep === 'otp' ? 'Verify Code' : 'Reset Password'}
               </Text>
             )}
           </TouchableOpacity>

@@ -9,8 +9,9 @@ import { getSession } from '../../utils/authStore';
 import { getProviders } from '../../utils/providerStore';
 import { initiatePaymentApi, confirmPaymentApi, getPaymentStatusApi } from '../../utils/paymentStore';
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '../../utils/api';
-import { loadConversationsFromApi, getActiveChats, subscribeActiveChats, ActiveChat, isConversationUnread } from '../../utils/chatStore';
+import { loadConversationsFromApi, getActiveChats, subscribeActiveChats, ActiveChat, isConversationUnread, subscribeIncomingToast, ToastNotificationPayload } from '../../utils/chatStore';
 import { getNotifications, subscribeNotifications, fetchNotifications } from '../../utils/notificationStore';
 
 // Custom Bell Icon
@@ -111,6 +112,7 @@ export default function PatientHomeScreen() {
   const [bankSearchQuery, setBankSearchQuery] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
   const [notifications, setNotifications] = useState(() => getNotifications());
+  const [chatToast, setChatToast] = useState<ToastNotificationPayload | null>(null);
 
   // Track seen message IDs to avoid duplicate alerts
   const seenMessageIds = useRef<Record<string, string>>({});
@@ -122,86 +124,34 @@ export default function PatientHomeScreen() {
     const updateD = () => setDoctorsList(getDoctors());
     const unsubscribeD = subscribeDoctors(updateD);
 
-    // Check for new doctor messages and alert the patient
-    const checkForNewMessages = () => {
-      setPatientActiveChats(getActiveChats());
-      const chats = getActiveChats();
-      for (const chat of chats) {
-        if (chat.isDoctorSender && chat.lastMessageId) {
-          const prevId = seenMessageIds.current[chat.conversationId];
-          if (prevId !== chat.lastMessageId) {
-            seenMessageIds.current[chat.conversationId] = chat.lastMessageId;
-            // Only alert if we had a previous ID (skip the first load)
-            if (prevId) {
-              const docName = chat.patientName;
-              const snippet = chat.lastMessage || 'New message';
-              
-              // Find the doctor or provider profile ID for navigation
-              const docProfile = chat.patientId ? doctorsList.find(d => d.userId === chat.patientId) : undefined;
-              let docProfileId = docProfile?.id || '';
-              if (!docProfileId && chat.patientId?.startsWith('mock_doctor_user_id_')) {
-                docProfileId = chat.patientId.replace('mock_doctor_user_id_', '');
-              }
-
-              const provProfile = chat.patientId ? getProviders().find(p => p.userId === chat.patientId) : undefined;
-              let provProfileId = provProfile?.id || '';
-              if (!provProfileId && chat.patientId?.startsWith('mock_provider_user_id_')) {
-                provProfileId = chat.patientId.replace('mock_provider_user_id_', '');
-              }
-
-              Alert.alert(
-                `New Message from ${docName}`,
-                snippet.length > 80 ? snippet.substring(0, 80) + '...' : snippet,
-                [
-                  { text: 'Later', style: 'cancel' },
-                  {
-                    text: 'Chat Now',
-                    onPress: () => {
-                      if (docProfileId) {
-                        router.push(`/patient/chat?doctorId=${docProfileId}`);
-                      } else if (provProfileId) {
-                        router.push(`/patient/chat?providerId=${provProfileId}`);
-                      }
-                    }
-                  }
-                ]
-              );
-            }
-          }
-        }
-      }
-    };
-
     const updateN = () => setNotifications(getNotifications());
     const unsubscribeN = subscribeNotifications(updateN);
     fetchNotifications();
 
-    const unsubscribeChats = subscribeActiveChats(checkForNewMessages);
+    const unsubscribeChats = subscribeActiveChats(() => {
+      setPatientActiveChats(getActiveChats());
+    });
+
+    const unsubscribeToast = subscribeIncomingToast((payload) => {
+      setChatToast(payload);
+      setTimeout(() => setChatToast(null), 5000);
+    });
 
     refreshBookings();
     loadConversationsFromApi();
-
-    // Seed initial seen message IDs on first load
-    setTimeout(() => {
-      const chats = getActiveChats();
-      for (const chat of chats) {
-        if (chat.lastMessageId) {
-          seenMessageIds.current[chat.conversationId] = chat.lastMessageId;
-        }
-      }
-    }, 2000);
 
     const interval = setInterval(() => {
       refreshBookings();
       loadConversationsFromApi();
       fetchNotifications();
-    }, 6000);
+    }, 5000);
 
     return () => {
       unsubscribeB();
       unsubscribeD();
       unsubscribeChats();
       unsubscribeN();
+      unsubscribeToast();
       clearInterval(interval);
     };
   }, []);
@@ -337,6 +287,49 @@ export default function PatientHomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f9ff' }} edges={['top']}>
+      {/* Floating In-App Live Chat Notification Toast */}
+      {chatToast && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            const targetDoctorId = chatToast.doctorId;
+            setChatToast(null);
+            router.push({ pathname: '/patient/chat', params: { doctorId: targetDoctorId } });
+          }}
+          style={{
+            position: 'absolute', top: 50, left: 16, right: 16, zIndex: 99999,
+            backgroundColor: '#0f172a', borderRadius: 16, padding: 14,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, elevation: 12,
+            borderWidth: 1.5, borderColor: '#38bdf8'
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+            <View style={{
+              width: 38, height: 38, borderRadius: 19,
+              backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center',
+              marginRight: 10, borderWidth: 1.5, borderColor: '#38bdf8'
+            }}>
+              <Ionicons name="chatbubbles" size={18} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: '800' }}>
+                New Message • {chatToast.senderName}
+              </Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '500', marginTop: 2 }} numberOfLines={1}>
+                {chatToast.text}
+              </Text>
+            </View>
+          </View>
+          <View style={{
+            backgroundColor: '#0284c7', paddingHorizontal: 12, paddingVertical: 6,
+            borderRadius: 12, shadowColor: '#0284c7', shadowOpacity: 0.4, shadowRadius: 4, elevation: 2
+          }}>
+            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Reply</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Header */}
       <View style={{
         backgroundColor: '#ffffff',

@@ -14,6 +14,8 @@ export interface ChatMessage {
   fileUrl?: string;
   fileType?: 'image' | 'pdf';
   fileName?: string;
+  isDelivered?: boolean;
+  isRead?: boolean;
 }
 
 let conversationsCache: Record<string, string> = {}; // maps cacheKey (doctorId_patientId) -> conversationId
@@ -34,6 +36,27 @@ export interface ActiveChat {
 let activeChats: ActiveChat[] = [];
 let chatListListeners: (() => void)[] = [];
 let readMessagesCache: Record<string, string> = {};
+
+// In-App Toast notification listeners
+export interface ToastNotificationPayload {
+  senderName: string;
+  text: string;
+  doctorId: string;
+  patientId?: string;
+  conversationId?: string;
+}
+
+let toastListeners: ((payload: ToastNotificationPayload) => void)[] = [];
+let lastNotifiedMessageId: string | null = null;
+let livePollingInterval: any = null;
+let globalChatPollingInterval: any = null;
+
+export const subscribeIncomingToast = (callback: (payload: ToastNotificationPayload) => void) => {
+  toastListeners.push(callback);
+  return () => {
+    toastListeners = toastListeners.filter(fn => fn !== callback);
+  };
+};
 
 export const isConversationUnread = (conversationId: string, lastMessageId?: string): boolean => {
   if (!lastMessageId) return false;
@@ -56,7 +79,6 @@ export const markConversationAsRead = (doctorId: string, patientId?: string) => 
         readMessagesCache[conversationId] = lastMsg.id;
       }
     } else {
-      // If no messages or loaded list yet, check activeChats to find lastMessageId
       const chat = activeChats.find(c => c.conversationId === conversationId);
       if (chat && chat.lastMessageId) {
         readMessagesCache[conversationId] = chat.lastMessageId;
@@ -65,7 +87,6 @@ export const markConversationAsRead = (doctorId: string, patientId?: string) => 
     chatListListeners.forEach(fn => fn());
   }
 };
-
 
 const resolvePatientId = (session: any, patientId?: string, patientName?: string): string => {
   if (session?.role === 'Doctor' || session?.role === 'Provider') {
@@ -78,7 +99,7 @@ const resolvePatientId = (session: any, patientId?: string, patientName?: string
   return patientId || session?.id || 'default_patient';
 };
 
-const loadMessagesFromApi = async (doctorId: string, patientId?: string, patientName?: string) => {
+export const loadMessagesFromApi = async (doctorId: string, patientId?: string, patientName?: string) => {
   const session = getSession();
   if (!session || !session.id) return;
 
@@ -154,9 +175,30 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
             senderName: isPatient ? (session.role === 'Doctor' || session.role === 'Provider' ? (patientName || 'Patient') : session.name) : docName,
             fileUrl: m.attachments?.[0]?.file?.url || undefined,
             fileType: m.attachments?.[0]?.file?.mimeType?.includes('pdf') ? 'pdf' : 'image',
-            fileName: m.attachments?.[0]?.file?.name || undefined
+            fileName: m.attachments?.[0]?.file?.name || undefined,
+            isDelivered: true,
+            isRead: true,
           };
         });
+
+        // Check for incoming message for toast notification
+        if (remoteList.length > 0) {
+          const lastMsg = remoteList[remoteList.length - 1];
+          const isFromOther = (session.role === 'Doctor' || session.role === 'Provider')
+            ? lastMsg.sender === 'patient'
+            : lastMsg.sender === 'doctor';
+
+          if (isFromOther && lastMsg.id !== lastNotifiedMessageId) {
+            lastNotifiedMessageId = lastMsg.id;
+            toastListeners.forEach(fn => fn({
+              senderName: lastMsg.senderName,
+              text: lastMsg.text,
+              doctorId: effectiveDoctorId,
+              patientId: actualPatientId,
+              conversationId
+            }));
+          }
+        }
 
         // Retain optimistic local messages that haven't synced yet
         const currentList = messagesCache[conversationId] || [];
@@ -170,6 +212,38 @@ const loadMessagesFromApi = async (doctorId: string, patientId?: string, patient
     console.error('Failed to sync chat messages from backend', e);
   } finally {
     activeFetches[fetchKey] = false;
+  }
+};
+
+export const startLiveChatPolling = (doctorId: string, patientId?: string, patientName?: string) => {
+  stopLiveChatPolling();
+  // Immediate load
+  loadMessagesFromApi(doctorId, patientId, patientName);
+  // Recurring polling every 2.5 seconds for instant real-time sync
+  livePollingInterval = setInterval(() => {
+    loadMessagesFromApi(doctorId, patientId, patientName);
+  }, 2500);
+};
+
+export const stopLiveChatPolling = () => {
+  if (livePollingInterval) {
+    clearInterval(livePollingInterval);
+    livePollingInterval = null;
+  }
+};
+
+export const startGlobalChatSync = () => {
+  stopGlobalChatSync();
+  loadConversationsFromApi();
+  globalChatPollingInterval = setInterval(() => {
+    loadConversationsFromApi();
+  }, 5000);
+};
+
+export const stopGlobalChatSync = () => {
+  if (globalChatPollingInterval) {
+    clearInterval(globalChatPollingInterval);
+    globalChatPollingInterval = null;
   }
 };
 
@@ -235,7 +309,9 @@ export const sendMessage = async (
     senderName,
     fileUrl: fileDetails?.url,
     fileType: fileDetails?.type,
-    fileName: fileDetails?.name
+    fileName: fileDetails?.name,
+    isDelivered: false,
+    isRead: false,
   };
 
   if (!messagesCache[conversationId]) {
@@ -377,4 +453,6 @@ export const clearChatCache = () => {
   activeFetches = {};
   listeners = [];
   chatListListeners = [];
+  stopLiveChatPolling();
+  stopGlobalChatSync();
 };

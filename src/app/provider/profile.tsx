@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Ima
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { getSession, subscribeSession, updateProfile } from '../../utils/authStore';
 import { apiGet } from '../../utils/api';
 
@@ -47,6 +48,27 @@ export default function ProviderProfileScreen() {
     setEditExperience(session.experience || '');
     setEditAvatar(session.avatar || '');
     setEditModalVisible(true);
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to select a facility logo or photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setEditAvatar(result.assets[0].uri);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to select image from gallery.');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -332,6 +354,22 @@ export default function ProviderProfileScreen() {
             <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 36 }}>
               {/* Avatar Selector Section */}
               <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginBottom: 8 }}>Choose Avatar / Facility Logo</Text>
+              
+              {/* Gallery Pick Button */}
+              <TouchableOpacity
+                onPress={handlePickFromGallery}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  backgroundColor: '#ecfdf5', borderWidth: 1.5, borderColor: '#6ee7b7',
+                  borderRadius: 14, paddingVertical: 12, marginBottom: 12,
+                }}
+              >
+                <Ionicons name="images-outline" size={20} color="#059669" />
+                <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
+                  Choose Photo from Phone Gallery
+                </Text>
+              </TouchableOpacity>
+
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 4 }}>
                   {PRESET_AVATARS.map((url, idx) => {

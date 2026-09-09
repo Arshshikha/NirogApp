@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Ima
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { getSession, subscribeSession, updateProfile } from '../../utils/authStore';
 import { getEarningsApi, EarningsResult } from '../../utils/paymentStore';
 import { apiGet } from '../../utils/api';
@@ -60,6 +61,27 @@ export default function DoctorProfileScreen() {
     setEditFee(session.fee ? session.fee.toString() : '');
     setEditAvatar(session.avatar || '');
     setEditModalVisible(true);
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to select a profile photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setEditAvatar(result.assets[0].uri);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to select image from gallery.');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -443,7 +465,23 @@ export default function DoctorProfileScreen() {
             <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 36 }}>
               {/* Avatar Selector Section */}
               <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginBottom: 8 }}>Choose Avatar / Profile Photo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              
+              {/* Gallery Pick Button */}
+              <TouchableOpacity
+                onPress={handlePickFromGallery}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  backgroundColor: '#f0f9ff', borderWidth: 1.5, borderColor: '#7dd3fc',
+                  borderRadius: 14, paddingVertical: 12, marginBottom: 12,
+                }}
+              >
+                <Ionicons name="images-outline" size={20} color="#0284c7" />
+                <Text style={{ color: '#0369a1', fontSize: 12, fontWeight: '800' }}>
+                  Choose Photo from Phone Gallery
+                </Text>
+              </TouchableOpacity>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 4 }}>
                   {PRESET_AVATARS.map((url, idx) => {
                     const isSelected = editAvatar === url;
@@ -476,7 +514,7 @@ export default function DoctorProfileScreen() {
               </ScrollView>
 
               {/* Custom Image URL Input */}
-              <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Or Custom Photo URL</Text>
+              <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600', marginBottom: 4 }}>Or Custom Photo URL / Selected URI</Text>
               <TextInput
                 value={editAvatar}
                 onChangeText={setEditAvatar}

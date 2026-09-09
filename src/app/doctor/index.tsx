@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { getBookings, updateBookingStatus, subscribeBookings, Booking, refreshBookings } from '../../utils/bookingStore';
 import { getSession } from '../../utils/authStore';
-import { loadConversationsFromApi, getActiveChats, subscribeActiveChats, ActiveChat, isConversationUnread } from '../../utils/chatStore';
+import { loadConversationsFromApi, getActiveChats, subscribeActiveChats, ActiveChat, isConversationUnread, subscribeIncomingToast, ToastNotificationPayload } from '../../utils/chatStore';
 import { getNotifications, subscribeNotifications, fetchNotifications } from '../../utils/notificationStore';
 
 // Custom Bell Icon
@@ -65,7 +66,7 @@ export default function DoctorBookingsScreen() {
   );
   const [activeChats, setActiveChats] = useState<ActiveChat[]>(() => getActiveChats());
   const [notifications, setNotifications] = useState(() => getNotifications());
-  const seenMessageIds = useRef<Record<string, string>>({});
+  const [chatToast, setChatToast] = useState<ToastNotificationPayload | null>(null);
  
   useEffect(() => {
     const update = () => {
@@ -73,64 +74,33 @@ export default function DoctorBookingsScreen() {
     };
     const unsubscribe = subscribeBookings(update);
 
-    const checkForNewMessages = () => {
-      setActiveChats(getActiveChats());
-      const chats = getActiveChats();
-      for (const chat of chats) {
-        if (!chat.isDoctorSender && chat.lastMessageId) {
-          const prevId = seenMessageIds.current[chat.conversationId];
-          if (prevId !== chat.lastMessageId) {
-            seenMessageIds.current[chat.conversationId] = chat.lastMessageId;
-            if (prevId) {
-              const patientName = chat.patientName;
-              const snippet = chat.lastMessage || 'New message';
-              Alert.alert(
-                `New Message from ${patientName}`,
-                snippet.length > 80 ? snippet.substring(0, 80) + '...' : snippet,
-                [
-                  { text: 'Later', style: 'cancel' },
-                  {
-                    text: 'Chat Now',
-                    onPress: () => {
-                      router.push(`/doctor/chat?patientId=${chat.patientId}&patientName=${patientName}`);
-                    }
-                  }
-                ]
-              );
-            }
-          }
-        }
-      }
-    };
     const updateN = () => setNotifications(getNotifications());
     const unsubscribeN = subscribeNotifications(updateN);
     fetchNotifications();
 
-    const unsubscribeChats = subscribeActiveChats(checkForNewMessages);
+    const unsubscribeChats = subscribeActiveChats(() => {
+      setActiveChats(getActiveChats());
+    });
+
+    const unsubscribeToast = subscribeIncomingToast((payload) => {
+      setChatToast(payload);
+      setTimeout(() => setChatToast(null), 5000);
+    });
  
     refreshBookings();
     loadConversationsFromApi();
  
-    // Seed initial seen message IDs on first load
-    setTimeout(() => {
-      const chats = getActiveChats();
-      for (const chat of chats) {
-        if (chat.lastMessageId) {
-          seenMessageIds.current[chat.conversationId] = chat.lastMessageId;
-        }
-      }
-    }, 2000);
-
     const interval = setInterval(() => {
       refreshBookings();
       loadConversationsFromApi();
       fetchNotifications();
-    }, 6000);
+    }, 5000);
  
     return () => {
       unsubscribe();
       unsubscribeChats();
       unsubscribeN();
+      unsubscribeToast();
       clearInterval(interval);
     };
   }, [session.profileId]);
@@ -150,6 +120,50 @@ export default function DoctorBookingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f9ff' }} edges={['top']}>
+      {/* Floating In-App Live Chat Notification Toast */}
+      {chatToast && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            const pId = chatToast.patientId;
+            const pName = chatToast.senderName;
+            setChatToast(null);
+            router.push({ pathname: '/doctor/chat', params: { patientId: pId, patientName: pName } });
+          }}
+          style={{
+            position: 'absolute', top: 50, left: 16, right: 16, zIndex: 99999,
+            backgroundColor: '#0f172a', borderRadius: 16, padding: 14,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, elevation: 12,
+            borderWidth: 1.5, borderColor: '#38bdf8'
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+            <View style={{
+              width: 38, height: 38, borderRadius: 19,
+              backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center',
+              marginRight: 10, borderWidth: 1.5, borderColor: '#38bdf8'
+            }}>
+              <Ionicons name="chatbubbles" size={18} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: '800' }}>
+                New Message • {chatToast.senderName}
+              </Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '500', marginTop: 2 }} numberOfLines={1}>
+                {chatToast.text}
+              </Text>
+            </View>
+          </View>
+          <View style={{
+            backgroundColor: '#0284c7', paddingHorizontal: 12, paddingVertical: 6,
+            borderRadius: 12, shadowColor: '#0284c7', shadowOpacity: 0.4, shadowRadius: 4, elevation: 2
+          }}>
+            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Reply</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Header */}
       <View style={{
         backgroundColor: '#ffffff', paddingHorizontal: 20, paddingVertical: 8,

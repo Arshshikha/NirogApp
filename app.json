@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.srushti.nirog",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,7 +38,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you choose and upload profile photos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -14,13 +14,13 @@ export default function PatientLayout() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 14,
           paddingTop: 8,
-          height: Platform.OS === 'ios' ? 84 : 64,
+          height: Platform.OS === 'ios' ? 88 : 72,
           shadowColor: '#000000',
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 10,
+          shadowOpacity: 0.08,
+          shadowRadius: 10,
+          elevation: 12,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -39,7 +39,7 @@ export default function PatientLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -48,7 +48,7 @@ export default function PatientLayout() {
         options={{
           title: 'Hospitals',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'business' : 'business-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'business' : 'business-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -57,23 +57,32 @@ export default function PatientLayout() {
         options={{
           title: 'Labs',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'flask' : 'flask-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'flask' : 'flask-outline'} size={23} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="hub"
+        name="history"
         options={{
-          title: 'Learning Hub',
+          title: 'Bookings',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={23} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          href: null,
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={23} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="hub"
+        options={{
+          href: null, // Removed from Patient view
         }}
       />
       <Tabs.Screen
@@ -84,12 +93,6 @@ export default function PatientLayout() {
       />
       <Tabs.Screen
         name="notifications"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
         options={{
           href: null,
         }}
