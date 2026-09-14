@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getSession, subscribeSession, updateProfile, UserSession } from '../../utils/authStore';
@@ -30,6 +30,7 @@ const PRESET_AVATARS = [
 
 export default function PatientProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [session, setSession] = useState<UserSession>(() => getSession());
   const [bookings, setBookings] = useState<Booking[]>(() => getBookings());
   const [patientActiveChats, setPatientActiveChats] = useState<ActiveChat[]>(() => getActiveChats());
@@ -544,115 +545,119 @@ export default function PatientProfileScreen() {
               backgroundColor: '#ffffff',
               borderTopWidth: 1, borderTopColor: '#bae6fd',
               borderTopLeftRadius: 36, borderTopRightRadius: 36,
-              padding: 24,
+              paddingTop: 20, paddingHorizontal: 24,
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24,
+              maxHeight: '88%',
               shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20
             }}>
-              {/* Handle bar */}
-              <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 6 }}>
+                {/* Handle bar */}
+                <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
 
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Share Your Experience</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Your feedback helps others choose the right care</Text>
-              </View>
+                <View style={{ alignItems: 'center', marginBottom: 18 }}>
+                  <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Share Your Experience</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Your feedback helps others choose the right care</Text>
+                </View>
 
-              {/* Provider Info Summary */}
-              <View style={{
-                backgroundColor: '#f0f9ff',
-                borderWidth: 1, borderColor: '#bae6fd',
-                padding: 14, borderRadius: 16,
-                marginBottom: 18,
-                alignItems: 'center'
-              }}>
-                <Text style={{ color: '#0369a1', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Reviewing</Text>
-                <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 14 }}>
-                  {selectedBookingForReview.doctorName || selectedBookingForReview.providerName || 'Healthcare Provider'}
-                </Text>
-                <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
-                  {selectedBookingForReview.type} • {selectedBookingForReview.date}
-                </Text>
-              </View>
-
-              {/* Star Rating Selector */}
-              <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', marginBottom: 6 }}>Rating</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 20 }}>
-                {[1, 2, 3, 4, 5].map((starVal) => {
-                  const isFilled = starVal <= rating;
-                  return (
-                    <TouchableOpacity
-                      key={starVal}
-                      onPress={() => setRating(starVal)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ fontSize: 38, color: isFilled ? '#fbbf24' : '#cbd5e1' }}>★</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Comment Text Input */}
-              <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Your Review</Text>
-              <TextInput
-                placeholder="Doctor explained everything very clearly and was very helpful..."
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={4}
-                value={comment}
-                onChangeText={setComment}
-                style={{
-                  backgroundColor: '#f8fafc',
-                  color: '#0f172a',
-                  borderWidth: 1,
-                  borderColor: '#e2e8f0',
-                  borderRadius: 16,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  fontSize: 13,
-                  fontWeight: '600',
-                  height: 100,
-                  textAlignVertical: 'top',
-                  marginBottom: 20
-                }}
-              />
-
-              {/* Action Buttons */}
-              <TouchableOpacity
-                onPress={handleSubmitReview}
-                disabled={isSubmittingReview}
-                style={{
-                  backgroundColor: '#10b981',
-                  paddingVertical: 16,
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  marginBottom: 10,
-                  shadowColor: '#10b981',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 4,
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  gap: 8
-                }}
-              >
-                {isSubmittingReview ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Submit Review</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setReviewModalVisible(false)}
-                disabled={isSubmittingReview}
-                style={{
-                  borderWidth: 1, borderColor: '#e2e8f0',
-                  backgroundColor: '#f8fafc',
-                  paddingVertical: 13,
-                  borderRadius: 16,
+                {/* Provider Info Summary */}
+                <View style={{
+                  backgroundColor: '#f0f9ff',
+                  borderWidth: 1, borderColor: '#bae6fd',
+                  padding: 14, borderRadius: 16,
+                  marginBottom: 16,
                   alignItems: 'center'
-                }}
-              >
-                <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel</Text>
-              </TouchableOpacity>
+                }}>
+                  <Text style={{ color: '#0369a1', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Reviewing</Text>
+                  <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 14 }}>
+                    {selectedBookingForReview.doctorName || selectedBookingForReview.providerName || 'Healthcare Provider'}
+                  </Text>
+                  <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                    {selectedBookingForReview.type} • {selectedBookingForReview.date}
+                  </Text>
+                </View>
+
+                {/* Star Rating Selector */}
+                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', marginBottom: 6 }}>Rating</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 18 }}>
+                  {[1, 2, 3, 4, 5].map((starVal) => {
+                    const isFilled = starVal <= rating;
+                    return (
+                      <TouchableOpacity
+                        key={starVal}
+                        onPress={() => setRating(starVal)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ fontSize: 38, color: isFilled ? '#fbbf24' : '#cbd5e1' }}>★</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Comment Text Input */}
+                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Your Review</Text>
+                <TextInput
+                  placeholder="Doctor explained everything very clearly and was very helpful..."
+                  placeholderTextColor="#94a3b8"
+                  multiline
+                  numberOfLines={4}
+                  value={comment}
+                  onChangeText={setComment}
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    color: '#0f172a',
+                    borderWidth: 1,
+                    borderColor: '#e2e8f0',
+                    borderRadius: 16,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    fontSize: 13,
+                    fontWeight: '600',
+                    height: 100,
+                    textAlignVertical: 'top',
+                    marginBottom: 18
+                  }}
+                />
+
+                {/* Action Buttons */}
+                <TouchableOpacity
+                  onPress={handleSubmitReview}
+                  disabled={isSubmittingReview}
+                  style={{
+                    backgroundColor: '#10b981',
+                    paddingVertical: 15,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    marginBottom: 10,
+                    shadowColor: '#10b981',
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 4,
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  {isSubmittingReview ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Submit Review</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setReviewModalVisible(false)}
+                  disabled={isSubmittingReview}
+                  style={{
+                    borderWidth: 1, borderColor: '#e2e8f0',
+                    backgroundColor: '#f8fafc',
+                    paddingVertical: 13,
+                    borderRadius: 16,
+                    alignItems: 'center'
+                  }}
+                >
+                  <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel</Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -689,7 +694,7 @@ export default function PatientProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 36 }}>
+            <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24 }}>
               {/* Avatar Selector Section */}
               <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginBottom: 8 }}>Choose Avatar / Profile Photo</Text>
               

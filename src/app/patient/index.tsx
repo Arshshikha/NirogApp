@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, Alert, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Doctor, mockProviders } from '../../constants/mockData';
 import { getDoctors, subscribeDoctors, RegisteredDoctor } from '../../utils/doctorStore';
@@ -91,6 +91,7 @@ const INDIAN_BANKS = [
 export default function PatientHomeScreen() {
   const router = useRouter();
   const session = getSession();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'All' | 'Allopathy' | 'Ayurveda' | 'Homeopathy'>('All');
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
@@ -542,7 +543,22 @@ export default function PatientHomeScreen() {
       {selectedDoctor && (
         <Modal visible={bookingModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, position: 'relative' }}>
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderTopWidth: 1,
+              borderTopColor: '#bae6fd',
+              borderTopLeftRadius: 36,
+              borderTopRightRadius: 36,
+              paddingTop: 20,
+              paddingHorizontal: 24,
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24,
+              maxHeight: '90%',
+              shadowColor: '#000',
+              shadowOpacity: 0.2,
+              shadowRadius: 20,
+              elevation: 20,
+              position: 'relative'
+            }}>
               {/* Close X Button */}
               <TouchableOpacity
                 onPress={() => setBookingModalVisible(false)}
@@ -551,105 +567,107 @@ export default function PatientHomeScreen() {
                 <Text style={{ color: '#64748b', fontSize: 14, fontWeight: '900' }}>✕</Text>
               </TouchableOpacity>
 
-              {/* Handle */}
-              <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Confirm Appointment</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Choose your consultation slot</Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 14, borderRadius: 16, marginBottom: 18, gap: 12 }}>
-                <Image source={{ uri: selectedDoctor.avatar }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#7dd3fc' }} />
-                <View>
-                  <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 13 }}>{selectedDoctor.name}</Text>
-                  <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600' }}>{selectedDoctor.specialty}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 6 }}>
+                {/* Handle */}
+                <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
+                <View style={{ alignItems: 'center', marginBottom: 18 }}>
+                  <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Confirm Appointment</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Choose your consultation slot</Text>
                 </View>
-              </View>
 
-              {/* Consultation Mode (if doctor supports Both) */}
-              {selectedDoctor.consultationMode === 'Both' && (
-                <View style={{ marginBottom: 18 }}>
-                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Consultation Mode</Text>
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    {(['Online', 'In-Person'] as const).map((modeVal) => {
-                      const isModeSelected = appointmentMode === modeVal;
-                      return (
-                        <TouchableOpacity
-                          key={modeVal}
-                          onPress={() => handleModeChange(modeVal)}
-                          style={{
-                            flex: 1,
-                            paddingVertical: 10,
-                            borderRadius: 12,
-                            borderWidth: 1.5,
-                            alignItems: 'center',
-                            backgroundColor: isModeSelected ? '#e0f2fe' : '#ffffff',
-                            borderColor: isModeSelected ? '#0ea5e9' : '#e2e8f0',
-                          }}
-                        >
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: isModeSelected ? '#0369a1' : '#475569' }}>
-                            {modeVal === 'Online' ? 'Online Video' : 'In-Person Visit'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 14, borderRadius: 16, marginBottom: 16, gap: 12 }}>
+                  <Image source={{ uri: selectedDoctor.avatar }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#7dd3fc' }} />
+                  <View>
+                    <Text style={{ color: '#0f172a', fontWeight: '800', fontSize: 13 }}>{selectedDoctor.name}</Text>
+                    <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600' }}>{selectedDoctor.specialty}</Text>
                   </View>
                 </View>
-              )}
 
-              {/* Consultation Mode Description (if doctor supports single mode) */}
-              {selectedDoctor.consultationMode && selectedDoctor.consultationMode !== 'Both' && (
-                <View style={{ marginBottom: 18, padding: 12, backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>Consultation Mode</Text>
-                  <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginTop: 4 }}>
-                    {selectedDoctor.consultationMode === 'Online' ? '💻 Online Video Call' : '🏥 In-Person Clinic Visit'}
-                  </Text>
+                {/* Consultation Mode (if doctor supports Both) */}
+                {selectedDoctor.consultationMode === 'Both' && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Consultation Mode</Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {(['Online', 'In-Person'] as const).map((modeVal) => {
+                        const isModeSelected = appointmentMode === modeVal;
+                        return (
+                          <TouchableOpacity
+                            key={modeVal}
+                            onPress={() => handleModeChange(modeVal)}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 10,
+                              borderRadius: 12,
+                              borderWidth: 1.5,
+                              alignItems: 'center',
+                              backgroundColor: isModeSelected ? '#e0f2fe' : '#ffffff',
+                              borderColor: isModeSelected ? '#0ea5e9' : '#e2e8f0',
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: isModeSelected ? '#0369a1' : '#475569' }}>
+                              {modeVal === 'Online' ? 'Online Video' : 'In-Person Visit'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* Consultation Mode Description (if doctor supports single mode) */}
+                {selectedDoctor.consultationMode && selectedDoctor.consultationMode !== 'Both' && (
+                  <View style={{ marginBottom: 16, padding: 12, backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>Consultation Mode</Text>
+                    <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginTop: 4 }}>
+                      {selectedDoctor.consultationMode === 'Online' ? '💻 Online Video Call' : '🏥 In-Person Clinic Visit'}
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Available Slots</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {(() => {
+                    const slots = (appointmentMode === 'Online' ? selectedDoctor.onlineSlots : selectedDoctor.offlineSlots) || selectedDoctor.availability || [];
+                    if (slots.length === 0) {
+                      return (
+                        <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '600', paddingVertical: 10 }}>
+                          No timing slots available for {appointmentMode === 'Online' ? 'online consultations' : 'clinic visits'}.
+                        </Text>
+                      );
+                    }
+                    return slots.map((time) => {
+                      const isTimeSelected = selectedTime === time;
+                      return (
+                        <TouchableOpacity
+                          key={time}
+                          onPress={() => setSelectedTime(time)}
+                          style={{
+                            paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1,
+                            backgroundColor: isTimeSelected ? '#e0f2fe' : '#ffffff',
+                            borderColor: isTimeSelected ? '#38bdf8' : '#e2e8f0',
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: isTimeSelected ? '#0369a1' : '#64748b' }}>{time}</Text>
+                        </TouchableOpacity>
+                      );
+                    });
+                  })()}
                 </View>
-              )}
 
-              <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Available Slots</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-                {(() => {
-                  const slots = (appointmentMode === 'Online' ? selectedDoctor.onlineSlots : selectedDoctor.offlineSlots) || selectedDoctor.availability || [];
-                  if (slots.length === 0) {
-                    return (
-                      <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '600', paddingVertical: 10 }}>
-                        No timing slots available for {appointmentMode === 'Online' ? 'online consultations' : 'clinic visits'}.
-                      </Text>
-                    );
-                  }
-                  return slots.map((time) => {
-                    const isTimeSelected = selectedTime === time;
-                    return (
-                      <TouchableOpacity
-                        key={time}
-                        onPress={() => setSelectedTime(time)}
-                        style={{
-                          paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1,
-                          backgroundColor: isTimeSelected ? '#e0f2fe' : '#ffffff',
-                          borderColor: isTimeSelected ? '#38bdf8' : '#e2e8f0',
-                        }}
-                      >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: isTimeSelected ? '#0369a1' : '#64748b' }}>{time}</Text>
-                      </TouchableOpacity>
-                    );
-                  });
-                })()}
-              </View>
+                <TouchableOpacity
+                  onPress={handleConfirmBooking}
+                  style={{ backgroundColor: '#10b981', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginBottom: 10, shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}
+                >
+                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Confirm Booking (₹{selectedDoctor.fee})</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleConfirmBooking}
-                style={{ backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 10, shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}
-              >
-                <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Confirm Booking (₹{selectedDoctor.fee})</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setBookingModalVisible(false)}
-                style={{ borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', paddingVertical: 13, borderRadius: 16, alignItems: 'center' }}
-              >
-                <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel & Go Back</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setBookingModalVisible(false)}
+                  style={{ borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', paddingVertical: 13, borderRadius: 16, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel & Go Back</Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -659,7 +677,22 @@ export default function PatientHomeScreen() {
       {selectedDoctor && (
         <Modal visible={checkoutModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, position: 'relative' }}>
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderTopWidth: 1,
+              borderTopColor: '#bae6fd',
+              borderTopLeftRadius: 36,
+              borderTopRightRadius: 36,
+              paddingTop: 20,
+              paddingHorizontal: 24,
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24,
+              maxHeight: '90%',
+              shadowColor: '#000',
+              shadowOpacity: 0.2,
+              shadowRadius: 20,
+              elevation: 20,
+              position: 'relative'
+            }}>
               {/* Top Close / Cancel Button */}
               <TouchableOpacity
                 onPress={() => setCheckoutModalVisible(false)}
@@ -669,146 +702,148 @@ export default function PatientHomeScreen() {
                 <Text style={{ color: '#64748b', fontSize: 14, fontWeight: '900' }}>✕</Text>
               </TouchableOpacity>
 
-              <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
-              
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>🔒 Secure Checkout</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Complete your transaction safely</Text>
-              </View>
-
-              {/* Order Summary Card */}
-              <View style={{ backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 16, borderRadius: 20, marginBottom: 20 }}>
-                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Booking Summary</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: '#0f172a', fontWeight: '700', fontSize: 13 }}>{selectedDoctor.name} ({appointmentMode === 'Online' ? 'Online' : 'In-Person'})</Text>
-                  <Text style={{ color: '#0f172a', fontWeight: '700', fontSize: 13 }}>₹{selectedDoctor.fee}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 6 }}>
+                <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
+                
+                <View style={{ alignItems: 'center', marginBottom: 18 }}>
+                  <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>🔒 Secure Checkout</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Complete your transaction safely</Text>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#bae6fd', paddingTop: 8, marginTop: 4 }}>
-                  <Text style={{ color: '#0f172a', fontWeight: '900', fontSize: 14 }}>Total Amount</Text>
-                  <Text style={{ color: '#10b981', fontWeight: '900', fontSize: 16 }}>₹{selectedDoctor.fee}</Text>
-                </View>
-              </View>
 
-              {/* Payment Methods */}
-              <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Select Payment Method</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                {(['UPI', 'Card', 'NetBanking'] as const).map((method) => {
-                  const isSelected = selectedPaymentMethod === method;
-                  return (
-                    <TouchableOpacity
-                      key={method}
-                      onPress={() => setSelectedPaymentMethod(method)}
-                      style={{
-                        flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, alignItems: 'center',
-                        backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
-                        borderColor: isSelected ? '#10b981' : '#e2e8f0',
-                      }}
-                    >
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: isSelected ? '#065f46' : '#64748b' }}>
-                        {method === 'NetBanking' ? 'Net Bank' : method}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Payment Method Inputs */}
-              {selectedPaymentMethod === 'UPI' && (
-                <View style={{ marginBottom: 20 }}>
-                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>UPI ID</Text>
-                  <TextInput
-                    placeholder="e.g. mobile@ybl or name@okaxis"
-                    placeholderTextColor="#94a3b8"
-                    defaultValue={`${session.phone || '9876543210'}@paytm`}
-                    style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600' }}
-                  />
-                </View>
-              )}
-
-              {selectedPaymentMethod === 'Card' && (
-                <View style={{ marginBottom: 20, gap: 10 }}>
-                  <TextInput
-                    placeholder="Card Number (e.g. 4111 2222 3333 4444)"
-                    placeholderTextColor="#94a3b8"
-                    style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600' }}
-                  />
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <TextInput
-                      placeholder="MM/YY"
-                      placeholderTextColor="#94a3b8"
-                      style={{ flex: 1, backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', textAlign: 'center' }}
-                    />
-                    <TextInput
-                      placeholder="CVV"
-                      placeholderTextColor="#94a3b8"
-                      secureTextEntry
-                      style={{ flex: 1, backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', textAlign: 'center' }}
-                    />
+                {/* Order Summary Card */}
+                <View style={{ backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd', padding: 16, borderRadius: 20, marginBottom: 18 }}>
+                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Booking Summary</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ color: '#0f172a', fontWeight: '700', fontSize: 13 }}>{selectedDoctor.name} ({appointmentMode === 'Online' ? 'Online' : 'In-Person'})</Text>
+                    <Text style={{ color: '#0f172a', fontWeight: '700', fontSize: 13 }}>₹{selectedDoctor.fee}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#bae6fd', paddingTop: 8, marginTop: 4 }}>
+                    <Text style={{ color: '#0f172a', fontWeight: '900', fontSize: 14 }}>Total Amount</Text>
+                    <Text style={{ color: '#10b981', fontWeight: '900', fontSize: 16 }}>₹{selectedDoctor.fee}</Text>
                   </View>
                 </View>
-              )}
 
-              {selectedPaymentMethod === 'NetBanking' && (
-                <View style={{ marginBottom: 20 }}>
-                  <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Search & Select Bank</Text>
-                  <TextInput
-                    placeholder="🔍 Search bank name..."
-                    placeholderTextColor="#94a3b8"
-                    value={bankSearchQuery}
-                    onChangeText={setBankSearchQuery}
-                    style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#bae6fd', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', marginBottom: 10 }}
-                  />
-                  <ScrollView style={{ maxHeight: 110 }} nestedScrollEnabled={true}>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {INDIAN_BANKS.filter(bank => bank.toLowerCase().includes(bankSearchQuery.toLowerCase())).map((bank) => {
-                        const isBankSelected = selectedBank === bank;
-                        return (
-                          <TouchableOpacity
-                            key={bank}
-                            onPress={() => setSelectedBank(bank)}
-                            style={{
-                              paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
-                              backgroundColor: isBankSelected ? '#e0f2fe' : '#f8fafc',
-                              borderColor: isBankSelected ? '#0ea5e9' : '#e2e8f0'
-                            }}
-                          >
-                            <Text style={{ fontSize: 9, fontWeight: '700', color: isBankSelected ? '#0369a1' : '#475569' }}>{bank}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
-                  {selectedBank ? (
-                    <Text style={{ color: '#059669', fontSize: 10, fontWeight: '800', marginTop: 8 }}>✓ Selected Bank: {selectedBank}</Text>
-                  ) : null}
+                {/* Payment Methods */}
+                <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Select Payment Method</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
+                  {(['UPI', 'Card', 'NetBanking'] as const).map((method) => {
+                    const isSelected = selectedPaymentMethod === method;
+                    return (
+                      <TouchableOpacity
+                        key={method}
+                        onPress={() => setSelectedPaymentMethod(method)}
+                        style={{
+                          flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, alignItems: 'center',
+                          backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
+                          borderColor: isSelected ? '#10b981' : '#e2e8f0',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: isSelected ? '#065f46' : '#64748b' }}>
+                          {method === 'NetBanking' ? 'Net Bank' : method}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              )}
 
-              {/* Action Buttons */}
-              <TouchableOpacity
-                onPress={handleExecutePayment}
-                disabled={isProcessingPayment}
-                style={{
-                  backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 10,
-                  shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-                  flexDirection: 'row', justifyContent: 'center', gap: 8
-                }}
-              >
-                {isProcessingPayment ? (
-                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Processing transaction...</Text>
-                ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Pay Now (₹{selectedDoctor.fee})</Text>
+                {/* Payment Method Inputs */}
+                {selectedPaymentMethod === 'UPI' && (
+                  <View style={{ marginBottom: 18 }}>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>UPI ID</Text>
+                    <TextInput
+                      placeholder="e.g. mobile@ybl or name@okaxis"
+                      placeholderTextColor="#94a3b8"
+                      defaultValue={`${session.phone || '9876543210'}@paytm`}
+                      style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600' }}
+                    />
+                  </View>
                 )}
-              </TouchableOpacity>
 
-              {!isProcessingPayment && (
+                {selectedPaymentMethod === 'Card' && (
+                  <View style={{ marginBottom: 18, gap: 10 }}>
+                    <TextInput
+                      placeholder="Card Number (e.g. 4111 2222 3333 4444)"
+                      placeholderTextColor="#94a3b8"
+                      style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600' }}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <TextInput
+                        placeholder="MM/YY"
+                        placeholderTextColor="#94a3b8"
+                        style={{ flex: 1, backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', textAlign: 'center' }}
+                      />
+                      <TextInput
+                        placeholder="CVV"
+                        placeholderTextColor="#94a3b8"
+                        secureTextEntry
+                        style={{ flex: 1, backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', textAlign: 'center' }}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {selectedPaymentMethod === 'NetBanking' && (
+                  <View style={{ marginBottom: 18 }}>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Search & Select Bank</Text>
+                    <TextInput
+                      placeholder="🔍 Search bank name..."
+                      placeholderTextColor="#94a3b8"
+                      value={bankSearchQuery}
+                      onChangeText={setBankSearchQuery}
+                      style={{ backgroundColor: '#f8fafc', color: '#0f172a', borderWidth: 1, borderColor: '#bae6fd', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12, fontWeight: '600', marginBottom: 10 }}
+                    />
+                    <ScrollView style={{ maxHeight: 110 }} nestedScrollEnabled={true}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {INDIAN_BANKS.filter(bank => bank.toLowerCase().includes(bankSearchQuery.toLowerCase())).map((bank) => {
+                          const isBankSelected = selectedBank === bank;
+                          return (
+                            <TouchableOpacity
+                              key={bank}
+                              onPress={() => setSelectedBank(bank)}
+                              style={{
+                                paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
+                                backgroundColor: isBankSelected ? '#e0f2fe' : '#f8fafc',
+                                borderColor: isBankSelected ? '#0ea5e9' : '#e2e8f0'
+                              }}
+                            >
+                              <Text style={{ fontSize: 9, fontWeight: '700', color: isBankSelected ? '#0369a1' : '#475569' }}>{bank}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                    {selectedBank ? (
+                      <Text style={{ color: '#059669', fontSize: 10, fontWeight: '800', marginTop: 8 }}>✓ Selected Bank: {selectedBank}</Text>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* Action Buttons */}
                 <TouchableOpacity
-                  onPress={() => setCheckoutModalVisible(false)}
-                  style={{ borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', paddingVertical: 13, borderRadius: 16, alignItems: 'center' }}
+                  onPress={handleExecutePayment}
+                  disabled={isProcessingPayment}
+                  style={{
+                    backgroundColor: '#10b981', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginBottom: 10,
+                    shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+                    flexDirection: 'row', justifyContent: 'center', gap: 8
+                  }}
                 >
-                  <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel Payment</Text>
+                  {isProcessingPayment ? (
+                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Processing transaction...</Text>
+                  ) : (
+                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Pay Now (₹{selectedDoctor.fee})</Text>
+                  )}
                 </TouchableOpacity>
-              )}
+
+                {!isProcessingPayment && (
+                  <TouchableOpacity
+                    onPress={() => setCheckoutModalVisible(false)}
+                    style={{ borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc', paddingVertical: 13, borderRadius: 16, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#64748b', fontWeight: '700', fontSize: 12 }}>Cancel Payment</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -818,7 +853,22 @@ export default function PatientHomeScreen() {
       {viewingDoctor && (
         <Modal visible={profileModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <View style={{ backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#bae6fd', borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, maxHeight: '85%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, position: 'relative' }}>
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderTopWidth: 1,
+              borderTopColor: '#bae6fd',
+              borderTopLeftRadius: 36,
+              borderTopRightRadius: 36,
+              paddingTop: 20,
+              paddingHorizontal: 24,
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24,
+              maxHeight: '88%',
+              shadowColor: '#000',
+              shadowOpacity: 0.2,
+              shadowRadius: 20,
+              elevation: 20,
+              position: 'relative'
+            }}>
               {/* Close X Button */}
               <TouchableOpacity
                 onPress={() => setProfileModalVisible(false)}
@@ -827,9 +877,9 @@ export default function PatientHomeScreen() {
                 <Text style={{ color: '#64748b', fontSize: 14, fontWeight: '900' }}>✕</Text>
               </TouchableOpacity>
 
-              <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
-              
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 6 }}>
+                <View style={{ width: 40, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
+                
                 {/* Header Profile Summary */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                   <Image source={{ uri: viewingDoctor.avatar }} style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: '#7dd3fc' }} />

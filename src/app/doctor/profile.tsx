@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Image, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Image, Modal, TextInput, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getSession, subscribeSession, updateProfile } from '../../utils/authStore';
@@ -36,6 +36,7 @@ const PRESET_AVATARS = [
 
 export default function DoctorProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [session, setSession] = useState(() => getSession());
   const [earnings, setEarnings] = useState<EarningsResult | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -462,7 +463,7 @@ export default function DoctorProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 36 }}>
+            <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) + 24 }}>
               {/* Avatar Selector Section */}
               <Text style={{ color: '#0f172a', fontSize: 12, fontWeight: '700', marginBottom: 8 }}>Choose Avatar / Profile Photo</Text>
               
